@@ -1,0 +1,16 @@
+{
+  "name": "fisel",
+  "license": "MIT",
+  "classPath": "src",
+  "tags": ["uhu", "uhx", "html", "html5", "css", "template", "macro"],
+  "description": "An HTML template library that is only plain HTML and CSS",
+  "contributors": ["skial"],
+  "releasenote": "Initial Release",
+  "version": "0.0.1-alpha",
+  "url": "https://github.com/skial/fisel",
+  "dependencies": {
+    "mo": "",
+	"uhu": "",
+	"detox": ""
+  }
+}

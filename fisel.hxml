@@ -1,0 +1,6 @@
+-lib mo
+-lib uhu
+-lib detox
+-cp src
+-neko bin/fisel.n
+-main Fisel
