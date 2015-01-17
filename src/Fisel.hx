@@ -43,7 +43,7 @@ using sys.FileSystem;
 
 @:forward @:enum abstract Target(String) from String to String {
 	public var TEXT = 'text';
-	public var DATA = 'data';
+	public var JSON = 'json';
 	public var DOM = 'dom';		// default
 }
 
@@ -131,7 +131,7 @@ class Fisel {
 						case { name:Target.TEXT, value:Action.COPY } | { name:Target.TEXT }:
 							content.replaceWith( matches.text().parse() );
 							
-						case { name:Target.DATA } :
+						case { name:Target.JSON } :
 							
 							
 						case { name:Target.DOM, value:Action.MOVE }:
