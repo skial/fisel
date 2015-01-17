@@ -1,13 +1,15 @@
 package;
 
+import uhx.io.Uri;
 import byte.ByteData;
 import haxe.ds.StringMap;
-import uhx.io.Uri;
 import uhx.lexer.CssLexer;
 import uhx.lexer.CssParser;
 import uhx.lexer.HtmlLexer;
 import uhx.lexer.HtmlParser;
 import uhx.lexer.SelectorParser;
+import uhx.mo.Token;
+import uhx.select.Html;
 
 using Detox;
 using StringTools;
@@ -39,12 +41,24 @@ using sys.FileSystem;
   * - [ ] Attributes on `<content id="1" data-name="Skial" /> which don't exist on the imported HTML are transfered over.
   */
 
+@:forward @:enum abstract Target(String) from String to String {
+	public var TEXT = 'text';
+	public var DATA = 'data';
+	public var DOM = 'dom';		// default
+}
+
+@:forward @:enum abstract Action(String) from String to String {
+	public var MOVE = 'move';
+	public var COPY = 'copy';	// default
+}
+  
 class Fisel {
 	
 	public static function main() {
 		
 	}
 	
+	private static var _actions:Array<String> = [Action.COPY, Action.MOVE];
 	private static var _css:CssParser;
 	private static var _html:HtmlParser;
 	private static var _selector:SelectorParser;
@@ -99,12 +113,34 @@ class Fisel {
 				content.replaceWith( importCache.get( attr = attr.substring(1) ).document.innerHTML().htmlUnescape().parse() );
 				
 			} else {
-				trace( attr );
 				matches = document.find( attr );
-				trace( matches );
+				
 				if (matches.length != 0) {
-					content.replaceWith( matches );
+					var attributes = [for (a in content.attributes) a].filter( 
+						function(a) {
+							a.name = a.name.startsWith('data-') ? a.name.substring(5) : a.name;
+							return _actions.indexOf(a.value) > -1;
+						}
+					);
 					
+					switch (attributes[0]) {
+						case { name:Target.TEXT, value:Action.MOVE }:
+							content.replaceWith( matches.text().parse() );
+							matches.remove();
+							
+						case { name:Target.TEXT, value:Action.COPY } | { name:Target.TEXT }:
+							content.replaceWith( matches.text().parse() );
+							
+						case { name:Target.DATA } :
+							
+							
+						case { name:Target.DOM, value:Action.MOVE }:
+							content.replaceWith( matches );
+							
+						case { name:Target.DOM, value:Action.COPY } | { name:Target.DOM } | null | _:
+							content.replaceWith( matches.clone() );
+							
+					}
 				}
 				
 			}
