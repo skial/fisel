@@ -59,6 +59,7 @@ class Fisel {
 	}
 	
 	private static var _ignore:Array<String> = ['select', 'data-text', 'data-json', 'text', 'json', 'data-dom', 'dom'];
+	private static var _targets:Array<String> = [Target.TEXT, Target.JSON, Target.DOM];
 	private static var _actions:Array<String> = [Action.COPY, Action.MOVE];
 	private static var _css:CssParser;
 	private static var _html:HtmlParser;
@@ -121,10 +122,11 @@ class Fisel {
 					var attributes = [for (a in content.attributes) a].filter( 
 						function(a) {
 							a.name = a.name.startsWith('data-') ? a.name.substring(5) : a.name;
-							return _actions.indexOf(a.value) > -1;
+							return _targets.indexOf(a.name) > -1 || _actions.indexOf(a.value) > -1;
 						}
 					);
 					
+					trace( attributes[0] );
 					switch (attributes[0]) {
 						case { name:Target.TEXT, value:Action.MOVE }:
 							content.replaceWith( matches.text().parse() );
@@ -150,8 +152,11 @@ class Fisel {
 						function(a) return _ignore.indexOf( a.name ) == -1
 					);
 					
-					if (targets != null) for (a in attributes) targets.setAttr(a.name, a.value);
-					targets = null;
+					if (targets != null) {
+						for (a in attributes) targets.setAttr(a.name, a.value);
+						targets = null;
+						
+					}
 				}
 				
 			}
