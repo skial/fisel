@@ -40,6 +40,7 @@ using sys.FileSystem;
   * - [x] Any unmatched selectors then search the document in its current state for a match.
   * - [x] Attributes on `<content id="1" data-name="Skial" /> which don't exist on the imported HTML are transfered over.
   * - [x] Transfered attributes which match by name will have the value added only if it doesnt exist, space separated to the end.
+  * - [x] Detect if attributes value is space or dashed separated and use the correct character when appending new values. Default is space.
   * - [x] Remove `<link rel="import" />` when `Fisel::build` has been run.
   */
 
@@ -155,12 +156,14 @@ class Fisel {
 					);
 					
 					var value;
+					var separator;
 					if (targets != null) {
 						for (target in targets) for (a in attributes) if ((value = target.attr( a.name )) == '') {
 							target.setAttr(a.name, a.value);
 							
 						} else if (value.indexOf( a.value ) == -1) {
-							target.setAttr( a.name, '$value ${a.value}' );
+							separator = !value.startsWith('-') && value.indexOf('-') > -1? '-' : ' ';
+							target.setAttr( a.name, '$value$separator${a.value}' );
 							
 						}
 						
