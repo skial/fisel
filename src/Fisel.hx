@@ -39,6 +39,7 @@ using sys.FileSystem;
   * - [x] Imported HTML replaces a `<content select="css"/>` which was selected by the `select` attribute.
   * - [x] Any unmatched selectors then search the document in its current state for a match.
   * - [x] Attributes on `<content id="1" data-name="Skial" /> which don't exist on the imported HTML are transfered over.
+  * - [x] Remove `<link rel="import" />` when `Fisel::build` has been run.
   */
 
 @:forward @:enum abstract Target(String) from String to String {
@@ -68,6 +69,7 @@ class Fisel {
 	public var document:DOMCollection;
 	
 	private var uri:Uri;
+	private var imports:DOMCollection;
 	private var insertionPoints:DOMCollection;
 	private var importCache:StringMap<Fisel> = new Map();
 	
@@ -78,7 +80,7 @@ class Fisel {
 		
 		document = html.parse();
 		insertionPoints = document.find( 'content[select]' );
-		var imports = document.find( 'link[rel*="import"][href*=".htm"]' );
+		imports = document.find( 'link[rel*="import"][href*=".htm"]' );
 		var bases = document.find( 'base[href]' );
 		
 		// If no `<base />` is found, set the root uri to the current working directory.
@@ -126,7 +128,6 @@ class Fisel {
 						}
 					);
 					
-					trace( attributes[0] );
 					switch (attributes[0]) {
 						case { name:Target.TEXT, value:Action.MOVE }:
 							content.replaceWith( matches.text().parse() );
@@ -166,6 +167,8 @@ class Fisel {
 		// Remove any unresolved `<content select="..." />`
 		document.find( 'content[select]' ).remove();
 		
+		// Remove all `<link rel="import" />`
+		imports.remove();
 	}
 	
 	public function load(imports:DOMCollection):Void {
