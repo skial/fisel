@@ -1,15 +1,15 @@
 package;
 
 import uhx.io.Uri;
+import uhx.mo.Token;
 import byte.ByteData;
+import uhx.select.Html;
 import haxe.ds.StringMap;
 import uhx.lexer.CssLexer;
 import uhx.lexer.CssParser;
 import uhx.lexer.HtmlLexer;
 import uhx.lexer.HtmlParser;
 import uhx.lexer.SelectorParser;
-import uhx.mo.Token;
-import uhx.select.Html;
 
 using Detox;
 using StringTools;
@@ -54,7 +54,7 @@ using sys.FileSystem;
 	public var MOVE = 'move';
 	public var COPY = 'copy';	// default
 }
-  
+
 class Fisel {
 	
 	public static function main() {
@@ -100,11 +100,8 @@ class Fisel {
 	}
 	
 	public function toString():String {
-		var result = '';
-		
-		
-		
-		return result;
+		build();
+		return document.html();
 	}
 	
 	public function build():Void {
