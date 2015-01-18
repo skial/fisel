@@ -39,6 +39,7 @@ using sys.FileSystem;
   * - [x] Imported HTML replaces a `<content select="css"/>` which was selected by the `select` attribute.
   * - [x] Any unmatched selectors then search the document in its current state for a match.
   * - [x] Attributes on `<content id="1" data-name="Skial" /> which don't exist on the imported HTML are transfered over.
+  * - [x] Transfered attributes which match by name will have the value added only if it doesnt exist, space separated to the end.
   * - [x] Remove `<link rel="import" />` when `Fisel::build` has been run.
   */
 
@@ -153,8 +154,16 @@ class Fisel {
 						function(a) return _ignore.indexOf( a.name ) == -1
 					);
 					
+					var value;
 					if (targets != null) {
-						for (a in attributes) targets.setAttr(a.name, a.value);
+						for (target in targets) for (a in attributes) if ((value = target.attr( a.name )) == '') {
+							target.setAttr(a.name, a.value);
+							
+						} else if (value.indexOf( a.value ) == -1) {
+							target.setAttr( a.name, '$value ${a.value}' );
+							
+						}
+						
 						targets = null;
 						
 					}
