@@ -36,9 +36,9 @@ using sys.FileSystem;
   * - [x] Each loaded resource is a Fisel instance.
   * - [x] Allow HTML not wrapped in `<template></template>`.
   * - [x] Automatically wrap any HTML not wrapped in `<template></template>`.
-  * - [ ] Imported HTML replaces a `<content select="css"/>` which was selected by the `select` attribute.
-  * - [ ] Any unmatched selectors then search the document in its current state for a match.
-  * - [ ] Attributes on `<content id="1" data-name="Skial" /> which don't exist on the imported HTML are transfered over.
+  * - [x] Imported HTML replaces a `<content select="css"/>` which was selected by the `select` attribute.
+  * - [x] Any unmatched selectors then search the document in its current state for a match.
+  * - [x] Attributes on `<content id="1" data-name="Skial" /> which don't exist on the imported HTML are transfered over.
   */
 
 @:forward @:enum abstract Target(String) from String to String {
@@ -58,6 +58,7 @@ class Fisel {
 		
 	}
 	
+	private static var _ignore:Array<String> = ['select', 'data-text', 'data-json', 'text', 'json', 'data-dom', 'dom'];
 	private static var _actions:Array<String> = [Action.COPY, Action.MOVE];
 	private static var _css:CssParser;
 	private static var _html:HtmlParser;
@@ -106,6 +107,7 @@ class Fisel {
 		
 		var attr;
 		var matches;
+		var targets;
 		for (content in insertionPoints) {
 			attr = content.attr( 'select' );
 			
@@ -134,18 +136,30 @@ class Fisel {
 						case { name:Target.JSON } :
 							
 							
-						case { name:Target.DOM, value:Action.MOVE }:
-							content.replaceWith( matches );
+						case { name:Target.DOM, value:Action.MOVE } :
+							targets = matches;
+							content.replaceWith( targets );
 							
 						case { name:Target.DOM, value:Action.COPY } | { name:Target.DOM } | null | _:
-							content.replaceWith( matches.clone() );
+							targets = matches.clone();
+							content.replaceWith( targets );
 							
 					}
+					
+					attributes = [for (a in content.attributes) a].filter(
+						function(a) return _ignore.indexOf( a.name ) == -1
+					);
+					
+					if (targets != null) for (a in attributes) matches.setAttr(a.name, a.value);
+					targets = null;
 				}
 				
 			}
 			
 		}
+		
+		// Remove any unresolved `<content select="..." />`
+		document.find( 'content[select]' ).remove();
 		
 	}
 	
