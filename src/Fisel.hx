@@ -150,7 +150,7 @@ class Fisel {
 						function(a) return _ignore.indexOf( a.name ) == -1
 					);
 					
-					if (targets != null) for (a in attributes) matches.setAttr(a.name, a.value);
+					if (targets != null) for (a in attributes) targets.setAttr(a.name, a.value);
 					targets = null;
 				}
 				
