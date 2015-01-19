@@ -1,5 +1,7 @@
 -lib mo
 -lib uhu
+-lib klas
+-lib cmd
 -lib detox
 -cp src
 -neko bin/fisel.n
