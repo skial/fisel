@@ -1,0 +1,8 @@
+-lib detox
+-lib uhu
+-lib mo
+-lib klas
+-lib cmd
+-cp src
+-neko bin/fisel.n
+-main LibRunner
