@@ -20,9 +20,10 @@ using sys.FileSystem;
  */
 @:cmd
 @:usage(
-	'fisel [options]',
 	'fisel --help',
-	'fisel -?'
+	'fisel --input index.html -o /bin/index.html',
+	'fisel --pretty -i index.html ## Print readable HTML to stdout.',
+	'fisel -o /bin/index.html ## Fisel will wait for input on stdin.'
 )
 class LibRunner extends Ioe implements Klas {
 	
@@ -31,14 +32,23 @@ class LibRunner extends Ioe implements Klas {
 		lib.exit();
 	}
 
+	/**
+	 * The file to process.
+	 */
 	@:isVar
 	@alias('i')
 	public var input(default, set):String;
 	
+	/**
+	 * The file to save to.
+	 */
 	@:isVar
 	@alias('o')
 	public var output(default, set):String;
 	
+	/**
+	 * Pretty print HTML output.
+	 */
 	@alias('p')
 	public var pretty:Bool = false;
 	
