@@ -1,11 +1,16 @@
 package;
 
+import uhx.mo.Token;
+import uhx.lexer.HtmlLexer;
 import sys.io.File;
 import uhx.sys.Ioe;
 import haxe.io.Input;
 import haxe.io.Output;
 import uhx.sys.ExitCode;
+import dtx.mo.DOMNode;
 
+using Detox;
+using StringTools;
 using haxe.io.Path;
 using sys.FileSystem;
 
@@ -34,6 +39,9 @@ class LibRunner extends Ioe implements Klas {
 	@alias('o')
 	public var output(default, set):String;
 	
+	@alias('p')
+	public var pretty:Bool = false;
+	
 	public function new(args:Array<String>) {
 		super();
 		@:cmd _;
@@ -48,9 +56,10 @@ class LibRunner extends Ioe implements Klas {
 		
 		if (content != '') {
 			var fisel = new Fisel( content );
-			var result = fisel.toString();
 			
-			stdout.writeString( result );
+			fisel.build();
+			fisel.document = fisel.document.filter( noWhitespace );
+			stdout.writeString( pretty ? print( fisel.document.collection ).trim() : fisel.toString() );
 			
 			exitCode = ExitCode.SUCCESS;
 			
@@ -58,6 +67,73 @@ class LibRunner extends Ioe implements Klas {
 			exitCode = ExitCode.ERRORS;
 			
 		}
+	}
+	
+	private function noWhitespace(node:DOMNode):Bool {
+		var result = true;
+		
+		if (node.nodeType == NodeType.Text && node.nodeValue.trim() == '') {
+			result = false;
+			
+		} else if (node.nodeType == NodeType.Element && node.hasChildNodes()) {
+			node.childNodes = node.childNodes.filter( noWhitespace );
+			
+		}
+		
+		return result;
+	}
+	
+	// Completely bypass Detox's built in printer, its wrong in places.
+	private function print(c:Array<DOMNode>, tab:String = ''):String {
+		var ref;
+		var node;
+		var result = '';
+		
+		for (i in 0...c.length) {
+			node = c[i];
+			
+			if (node.nodeType != NodeType.Text && i == 0) result += '\n';
+			
+			switch (node.nodeType) {
+				case NodeType.Element, NodeType.Unknown:
+					// Grab the underlying structure instead of accessing via the `DOMNode` abstract class.
+					ref = switch (node.token()) {
+						case Keyword(Tag(r)): r;
+						case _: null;
+					}
+					
+					if (ref != null) {
+						result += '$tab<${ref.name}';
+						
+						if (ref.attributes.iterator().hasNext()) {
+							result += ' ' + [for (k in ref.attributes.keys()) '$k="${ref.attributes.get(k)}"'].join(' ');
+							
+						}
+						
+						if (ref.selfClosing) {
+							result += ' />';
+							
+						} else {
+							result += '>';
+							if (ref.tokens.length > 0) result += print(ref.tokens, '$tab\t');
+							result += ((result.charAt(result.length - 1) == '\n') ? tab : '') + '</${ref.name}>';
+							
+						}
+						
+					}
+					
+				case NodeType.Text:
+					result += node.nodeValue;
+				
+				case NodeType.Comment:
+					result += '<!${node.nodeValue}>';
+					
+			}
+			
+			if (node.nodeType != NodeType.Text) result += '\n';
+		}
+		
+		return result;
 	}
 	
 	private function set_input(v:String):String {
