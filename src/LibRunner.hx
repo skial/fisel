@@ -22,8 +22,8 @@ using sys.FileSystem;
 @:usage(
 	'fisel --help',
 	'fisel --input index.html -o /bin/index.html',
-	'fisel --pretty -i index.html ## Print readable HTML to stdout.',
-	'fisel -o /bin/index.html ## Fisel will wait for input on stdin.'
+	'fisel --pretty -i index.html ## Prints to stdout',
+	'fisel -o /bin/index.html ## Will wait for input on stdin'
 )
 class LibRunner extends Ioe implements Klas {
 	
@@ -65,8 +65,9 @@ class LibRunner extends Ioe implements Klas {
 		);
 		
 		if (content != '') {
-			var fisel = new Fisel( content );
+			var fisel = new Fisel( content.parse() );
 			
+			fisel.load();
 			fisel.build();
 			fisel.document = fisel.document.filter( noWhitespace );
 			stdout.writeString( pretty ? print( fisel.document.collection ).trim() : fisel.toString() );
