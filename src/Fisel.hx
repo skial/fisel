@@ -5,12 +5,8 @@ import uhx.mo.Token;
 import byte.ByteData;
 import uhx.select.Html;
 import haxe.ds.StringMap;
-import uhx.lexer.CssLexer;
-import uhx.lexer.CssParser;
-import uhx.lexer.HtmlLexer;
-import uhx.lexer.HtmlParser;
-import uhx.lexer.SelectorParser;
 
+using Fisel;
 using Detox;
 using StringTools;
 using haxe.io.Path;
@@ -24,6 +20,7 @@ using sys.FileSystem;
  * ...
  * @author Skial Bainn
  * Haitian Creole for string
+ * @see http://www.w3.org/TR/html-imports/
  */
 
  /**
@@ -64,52 +61,160 @@ class Fisel {
 	private static var _ignore:Array<String> = ['select', 'data-text', 'data-json', 'text', 'json', 'data-dom', 'dom'];
 	private static var _targets:Array<String> = [Target.TEXT, Target.JSON, Target.DOM];
 	private static var _actions:Array<String> = [Action.COPY, Action.MOVE];
-	private static var _css:CssParser;
-	private static var _html:HtmlParser;
-	private static var _selector:SelectorParser;
 	
+	/**
+	 * Determines if this `Fisel` instance is the master document.
+	 */
+	@:access(Fisel) public static inline function isMaster(fisel:Fisel):Bool {
+		return fisel.referrers.length == 0;
+	}
+	
+	/**
+	 * Attempts to return the master document.
+	 */
+	@:access(Fisel) public static function getMaster(fisel:Fisel):Null<Fisel> {
+		var master:Fisel = null;
+		
+		for (referrer in fisel.referrers) if (referrer.isMaster()) {
+			master = referrer;
+			break;
+			
+		} else {
+			master = referrer.getMaster();
+			if (master != null) break;
+			
+		}
+		
+		return master;
+	}
+	
+	/**
+	 * Goes through the `Fisel` instance referrers to see if any of their
+	 * `uri`'s match the current `location`.
+	 */
+	@:access(Fisel) public static function isCycle(fisel:Fisel, location:String):Bool {
+		var result = fisel.location == location;
+		
+		if (!result) for (referrer in fisel.referrers) {
+			result = referrer.isCycle( location );
+			if (result) break;
+		}
+		
+		return result;
+	}
+	
+	@:access(Fisel) public static function predecessors(fisel:Fisel):Array<Fisel> {
+		var index = -1;
+		var result = [];
+		var slice = [];
+		
+		for (referrer in fisel.referrers) {
+			// Find the index of this `link` in its parents `importsList`/
+			for (i in 0...referrer.importsList.length) if (referrer.importsList[i].location == fisel.location) {
+				// From the top of `importsList` to `i`, fecth the corrosponding `fisel` instance.
+				slice = referrer.importsList.slice(0, i);
+				
+				for (piece in slice) {
+					result.push( referrer.importsMap.get( piece.location ) );
+				}
+				
+				// Now get the predecessors for each `piece` and join with the `result` array.
+				for (piece in slice) {
+					result = result.concat( piece.predecessors() );
+				}
+			}
+		}
+		
+		return result;
+	}
+	
+	/**
+	 * If this HTML document is imported by one of its child HTML document.
+	 */
+	public var cycle:Bool;
+	
+	/**
+	 * The original `<link rel="import" href=".." />`.
+	 */
+	public var link:DOMNode;
+	
+	/**
+	 * This HTML document.
+	 */
 	public var document:DOMCollection;
 	
-	private var uri:Uri;
+	/**
+	 * A list of `<link rel="import" href="..." />`'s found in this HTML document.
+	 */
+	private var importsList:Array<Fisel> = [];
+	
+	/**
+	 * A map of `<link rel="import" href="..." />`'s already loaded.
+	 * 	+	The `key` is the url.
+	 * 	+	The `value` is a `Fisel` instance.
+	 */
+	private var importsMap:StringMap<Fisel> = new StringMap();
+	
+	/**
+	 * The HTML documents that `<link rel="import" href="..." />` this HTML document.
+	 */
+	private var referrers:Array<Fisel> = [];
+	
+	/**
+	 * The url to the import.
+	 */
+	public var location:String;
+	
+	private var links:DOMCollection;
 	private var imports:DOMCollection;
 	private var insertionPoints:DOMCollection;
 	private var importCache:StringMap<Fisel> = new StringMap();
 	
-	public function new(html:DOMCollection, ?path:String) {
-		if (_css == null) _css = new CssParser();
-		if (_html == null) _html = new HtmlParser();
-		if (_selector == null) _selector = new SelectorParser();
-		
+	public function new(?html:DOMCollection, ?path:String) {
 		document = html;
+		
 		insertionPoints = document.find( 'content[select]' );
-		imports = document.find( 'link[rel*="import"][href*=".htm"]' );
+		//imports = document.find( 'link[rel*="import"][href*=".htm"]' );
 		var bases = document.find( 'base[href]' );
 		
 		if (path == null) {
 			// If no `<base />` is found, set the root uri to the current working directory.
 			if (bases.length == 0) {
-				uri = new Uri( #if !js Sys.getCwd().normalize() #else js.Browser.document.location.host #end );
+				location = #if !js Sys.getCwd().normalize() #else js.Browser.document.location.host #end;
 				
 			} else {
 				var _base = bases.collection[0].attr( 'href' ).normalize();
 				_base = !_base.isAbsolute() ? (#if !js Sys.getCwd() #else js.Browser.document.location.host #end + _base).normalize() : _base;
-				uri = new Uri( _base );
+				location = _base;
 				
 			}
 			
 		} else {
-			uri = new Uri( path );
+			location = path;
 			
 		}
 		
+		findImports();
+		loadImports();
+	}
+	
+	public function findImports():Void {
+		links = document.find( 'link[rel*="import"][href*=".htm"]' );
+	}
+	
+	public function loadImports():Void {
+		for (link in links) {
+			importRequest( link, location + '/' + link.attr( 'href' ) );
+			importFetching( link, location + '/' + link.attr( 'href' ) );
+		}
 	}
 	
 	public function toString():String {
-		build();
+		//build();
 		return document.html();
 	}
 	
-	public function build():Void {
+	/*public function build():Void {
 		for (key in importCache.keys()) importCache.get( key ).build();
 		
 		var attr;
@@ -188,7 +293,7 @@ class Fisel {
 	}
 	
 	// Act like HTML imports.
-	public function load():Void {
+	/*public function load():Void {
 		var content = '';
 		var attr = '';
 		var id = '';
@@ -212,16 +317,16 @@ class Fisel {
 		}
 		
 		for (key in importCache.keys()) importCache.get( key ).load();
-	}
+	}*/
 	
 	#if !js
 	public inline function loadFile(path:String):String {
 		path = path.normalize();
+		trace( path );
 		if (path.exists()) {
 			return path.getContent();
-		} else {
-			throw 'Can not find file $path';
 		}
+		return '';
 	}
 	#else
 	public inline function loadFile(path:String):String {
@@ -229,60 +334,28 @@ class Fisel {
 	}
 	#end
 	
-	// Untested methods based on w3c html imports spec >see http://w3c.github.io/webcomponents/spec/imports/
-	
-	// http://w3c.github.io/webcomponents/spec/imports/#updateing-branch
-	//private function updatingBranch(document:Fisel):Void {
-		// Need a way to determine if `document` is the master document.
-		// A master document is the html document which kicked off the chain of
-		// imports.
-		/*
-		 * var list = document.linkList;
-		 * for (link in list) {
-		 * 		var location = link.location;
-		 * 		var import = link.location;
-		 * 		// Implement step 3 of #updateing-branch
-		 * 		if (link.branch && import != null) {
-		 * 			updateMarking( import );
-		 * 		}
-		 * }
-		 */
-	//}
-	
-	// http://w3c.github.io/webcomponents/spec/imports/#requesting-import
-	/*private function requestingImport(link:DOMNode, location:String):Void {
-		if (link.attr('async') == 'true') {
-			// mark as async
-		}
-		var document = ''; // Needs to be a Fisel instance.
-		var list = ''; // Needs to fisel.linkList;
-		var item = { link:'', location:'' };
-		// list.push( item );
-		// updateMarking( masterDocument );
+	private function importRequest(link:DOMNode, location:String):Void {
+		var result = new Fisel( location );
+		result.cycle = this.isCycle( location );
+		result.referrers.push( this );
+		importsList.push( result );
 	}
 	
-	// http://w3c.github.io/webcomponents/spec/imports/#fetching-import
-	private function fetchingImport(link:DOMNode, location:String):Fisel {
+	private function importFetching(link:DOMNode, location:String):Fisel {
+		var result:Fisel;
 		
+		if (importsMap.exists( location )) {
+			result = importsMap.get( location );
+			
+		} else {
+			result = new Fisel( loadFile( location ).parse(), location );
+			result.findImports();
+			result.loadImports();
+			importsMap.set( location, result );
+			
+		}
+		
+		return result;
 	}
-	
-	// http://w3c.github.io/webcomponents/spec/imports/#import-link-tree
-	private function importLinkTree(parent:DOMCollection, current:DOMCollection, pool:Array<DOMCollection>) {
-		// return a tree of documents
-	}*/
 	
 }
-
-// Untested code based on w3c html imports spec.
-
-/*class Requested {
-	public var branch:Bool;
-	public var link:DOMNode;
-	public var location:String;
-	
-	public function new(link:DOMNode, location:String, ?branch:Bool = false) {
-		this.link = link;
-		this.location = location;
-		this.branch = branch;
-	}
-}*/
