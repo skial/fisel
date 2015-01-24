@@ -262,17 +262,13 @@ class Fisel {
 		// Remove all `<link rel="import" />`
 		imports.remove();*/
 		
-		/*for (link in links) {
-			trace( link.location.withoutDirectory() + ' cycle status is: ' + link.cycle );
-			if (!link.cycle) linkMap.get( link.location ).build();
-		}*/
-		
-		
 		for (link in links) {
 			trace( link.location.withoutDirectory() );
 			//trace( link.location.withoutDirectory() + ' cycle status is ' + link.cycle + ' for document ' + location.withoutDirectory() );
-			trace( linkMap.get( link.location ).lineage().map( function(s) return s.location.withoutDirectory() ) );
+			trace( 'ancestors==' + linkMap.get( link.location ).lineage().map( function(s) return s.location.withoutDirectory() ) );
+			trace( 'predescessors==' + linkMap.get( link.location ).predecessors().map( function(s) return s.location.withoutDirectory() ) );
 			if (!link.cycle) linkMap.get( link.location ).build();
+			
 		}
 	}
 	
@@ -300,14 +296,44 @@ class Fisel {
 		
 		while (refs.length > 0) {
 			var current = refs.pop();
-			var length = current.referrers.length-1;
+			var length = current.referrers.length - 1;
+			
 			while (length > -1) {
-				var r = current.referrers[length];
-				if (results.lastIndexOf(r) == -1 && r.location != link.location) {
-					refs.unshift( r );
-					results.unshift( r );
+				var referrer = current.referrers[length];
+				
+				if (results.lastIndexOf( referrer ) == -1 && referrer.location != link.location) {
+					refs.unshift( referrer );
+					results.unshift( referrer );
+					
 				}
+				
 				length--;
+			}
+			
+		}
+		
+		return results;
+	}
+	
+	public static function predecessors(link:Fisel):Array<Fisel> {
+		var index = -1;
+		var results = [];
+		var ancestor:Fisel = null;
+		var referrer:Fisel = null;
+		var ancestors = link.lineage();
+		
+		while (ancestors.length > 0) {
+			ancestor = ancestors.pop();
+			
+			for (i in 0...ancestor.links.length) if (!ancestor.links[i].cycle && ancestor.links[i].location == link.location) {
+				index = i;
+				break;
+			}
+			
+			if (index > 0) for (piece in ancestor.links.slice(0, index)) if(!piece.cycle) {
+				referrer = link.linkMap.get( piece.location );
+				if (results.lastIndexOf( referrer ) == -1) results.unshift( referrer );
+				
 			}
 			
 		}
