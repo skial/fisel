@@ -270,6 +270,7 @@ class Fisel {
 		
 		for (link in links) {
 			trace( link.location.withoutDirectory() );
+			//trace( link.location.withoutDirectory() + ' cycle status is ' + link.cycle + ' for document ' + location.withoutDirectory() );
 			trace( linkMap.get( link.location ).lineage().map( function(s) return s.location.withoutDirectory() ) );
 			if (!link.cycle) linkMap.get( link.location ).build();
 		}
@@ -294,13 +295,19 @@ class Fisel {
 	 * `link` in the import chain.
 	 */
 	public static function lineage(link:Fisel):Array<Fisel> {
-		var results = link.referrers;
+		var results = link.referrers.filter( function(r) return link.links.filter(function(l) return !l.cycle && l.location == r.location).length == 0 );
 		var refs = results.copy();
 		
 		while (refs.length > 0) {
-			for (r in refs.pop().referrers) if (results.lastIndexOf(r) == -1 && r.location != link.location) {
-				refs.push( r );
-				results.push( r );
+			var current = refs.pop();
+			var length = current.referrers.length-1;
+			while (length > -1) {
+				var r = current.referrers[length];
+				if (results.lastIndexOf(r) == -1 && r.location != link.location) {
+					refs.unshift( r );
+					results.unshift( r );
+				}
+				length--;
 			}
 			
 		}
