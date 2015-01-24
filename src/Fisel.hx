@@ -54,7 +54,14 @@ using sys.FileSystem;
 
 private class Link {
 	
+	/**
+	 * If this HTML document is imported by one of its child HTML document.
+	 */
 	public var cycle:Bool;
+	
+	/**
+	 * The url to the import.
+	 */
 	public var location:String;
 	
 	public inline function new(location:String, cycle:Bool = false) {
@@ -75,73 +82,19 @@ class Fisel {
 	private static var _actions:Array<String> = [Action.COPY, Action.MOVE];
 	
 	/**
-	 * Determines if this `Fisel` instance is the master document.
-	 */
-	@:access(Fisel) public static inline function isMaster(fisel:Fisel):Bool {
-		return fisel.referrers.length == 0;
-	}
-	
-	/**
-	 * Attempts to return the master document.
-	 */
-	@:access(Fisel) public static function getMaster(fisel:Fisel):Null<Fisel> {
-		var master:Fisel = null;
-		
-		for (referrer in fisel.referrers) if (referrer.isMaster()) {
-			master = referrer;
-			break;
-			
-		} else {
-			master = referrer.getMaster();
-			if (master != null) break;
-			
-		}
-		
-		return master;
-	}
-	
-	/**
-	 * Goes through the `Fisel` instance referrers and link list
+	 * Goes through the `parent`'s referrers link list
 	 * for a mtach to `child`. If `true`, its a loop.
 	 */
-	public static function isCycle(parent:Fisel, child:String):Bool {
-		var result = parent.location == child;
+	public static function isCycle(child:Link, parent:Fisel):Bool {
+		var result = false;
 		
-		var referMatch = parent.referrers.filter( function(r) return r.location == child );
-		var linkMatch = parent.importsList.filter( function(l) return l.location == child );
-		
-		return referMatch.length > 0 && linkMatch.length > 0;
-	}
-	
-	@:access(Fisel) public static function predecessors(link:Fisel):Array<Fisel> {
-		var index = -1;
-		var result = [];
-		var slice = [];
-		
-		for (referrer in link.referrers) {
-			// Find the index of this `link` in its parents `importsList`/
-			for (i in 0...referrer.importsList.length) if (referrer.importsList[i].location == link.location) {
-				// From the top of `importsList` to `i`, fecth the corrosponding `fisel` instance.
-				slice = referrer.importsList.slice(0, i);
-				
-				for (piece in slice) {
-					result.push( referrer.importsMap.get( piece.location ) );
-				}
-				
-				// Now get the predecessors for each `piece` and join with the `result` array.
-				for (piece in slice) {
-					result = result.concat( piece.predecessors() );
-				}
-			}
+		for (r in parent.referrers) if (r.location == child.location) {
+			result = true;
+			break;
 		}
 		
 		return result;
 	}
-	
-	/**
-	 * If this HTML document is imported by one of its child HTML document.
-	 */
-	public var cycle:Bool;
 	
 	/**
 	 * This HTML document.
@@ -151,14 +104,14 @@ class Fisel {
 	/**
 	 * A list of `<link rel="import" href="..." />`'s found in this HTML document.
 	 */
-	private var importsList:Array<Link> = [];
+	private var links:Array<Link> = [];
 	
 	/**
 	 * A map of `<link rel="import" href="..." />`'s already loaded.
 	 * 	+	The `key` is the url.
 	 * 	+	The `value` is a `Fisel` instance.
 	 */
-	private var importsMap:StringMap<Fisel>;
+	private var linkMap:StringMap<Fisel>;
 	
 	/**
 	 * The HTML documents that `<link rel="import" href="..." />` this HTML document.
@@ -170,7 +123,6 @@ class Fisel {
 	 */
 	public var location:String;
 	
-	private var links:DOMCollection;
 	private var imports:DOMCollection;
 	private var insertionPoints:DOMCollection;
 	private var importCache:StringMap<Fisel> = new StringMap();
@@ -198,25 +150,33 @@ class Fisel {
 	
 	public function find():Void {
 		for (link in document.find( 'link[rel*="import"][href*=".htm"]' )) {
-			importsList.push( new Link( (location.directory() + '/' + link.attr( 'href' )).normalize() ) );
+			var l =  new Link( (location.directory() + '/' + link.attr( 'href' )).normalize() );
+			links.push( l );
+			l.cycle = Fisel.isCycle(l, this);
 		}
 	}
 	
 	public function load():Void {
 		var path = '';
+		var fisel:Fisel;
 		
-		for (link in importsList) {
-			var f = fetch( link.location );
+		for (link in links) {
 			
-			var name = f.location.withoutDirectory();
-			var linkList = f.importsList.map( function(l) return l.location.withoutDirectory() );
-			var lineage = f.buildLineage().map( function(l) return l.location.withoutDirectory() );
-			var predecessors = [];
+			if (linkMap.exists( link.location )) {
+				linkMap.get( link.location ).referrers.push( this );
+				
+			} else {
+				fisel = new Fisel();
+				fisel.linkMap = linkMap;
+				fisel.location = link.location;
+				fisel.document = loadFile( link.location ).parse();
+				linkMap.set( link.location, fisel );
+				fisel.referrers.push( this );
+				fisel.find();
+				fisel.load();
+				
+			}
 			
-			trace( 'The document $name has an import link list which contains: $linkList' );
-			trace( 'The document $name has a set of import ancestors that are: $lineage' );
-			trace( 'The document $name cycle value is: ${f.cycle}' );
-			trace( 'The import predecessors of $name are: $predecessors' );
 		}
 	}
 	
@@ -225,8 +185,8 @@ class Fisel {
 		return document.html();
 	}
 	
-	/*public function build():Void {
-		for (key in importCache.keys()) importCache.get( key ).build();
+	public function build():Void {
+		/*for (key in importCache.keys()) importCache.get( key ).build();
 		
 		var attr;
 		var matches;
@@ -300,35 +260,20 @@ class Fisel {
 		document.find( 'content[select]' ).remove();
 		
 		// Remove all `<link rel="import" />`
-		imports.remove();
-	}
-	
-	// Act like HTML imports.
-	/*public function load():Void {
-		var content = '';
-		var attr = '';
-		var id = '';
-		var path;
+		imports.remove();*/
 		
-		for (imp in imports) {
-			attr = imp.attr( 'href' );
-			path = new Uri( '$uri/$attr'.normalize() );
-			
-			// Allow for user defined ids, but default to the file name without its extension.
-			id = imp.attr( 'id' ) != '' ? imp.attr( 'id' ) : attr.withoutExtension().withoutDirectory();
-			
-			if (!importCache.exists( id )) {
-				content = loadFile( '$path' );
-				// All content should be wrapped in `<template></template>`.
-				if (content.indexOf( '<template>' ) == -1) content = '<template>$content</template>';
-				importCache.set( id, new Fisel( content.parse() ) );
-				
-			}
-			
+		/*for (link in links) {
+			trace( link.location.withoutDirectory() + ' cycle status is: ' + link.cycle );
+			if (!link.cycle) linkMap.get( link.location ).build();
+		}*/
+		
+		
+		for (link in links) {
+			trace( link.location.withoutDirectory() );
+			trace( linkMap.get( link.location ).lineage().map( function(s) return s.location.withoutDirectory() ) );
+			if (!link.cycle) linkMap.get( link.location ).build();
 		}
-		
-		for (key in importCache.keys()) importCache.get( key ).load();
-	}*/
+	}
 	
 	#if !js
 	public inline function loadFile(path:String):String {
@@ -344,50 +289,23 @@ class Fisel {
 	}
 	#end
 	
-	/*private function request(link:DOMNode, location:String):Void {
-		var result = new Fisel();
-		result.location = location;
-		result.importsMap = importsMap;
-		result.referrers.push( this );
-		importsList.push( result );
-	}*/
-	
-	private function fetch(location:String):Fisel {
-		var result:Fisel;
+	/**
+	 * Returns an array of `Fisel` instances which preceede
+	 * `link` in the import chain.
+	 */
+	public static function lineage(link:Fisel):Array<Fisel> {
+		var results = link.referrers;
+		var refs = results.copy();
 		
-		if (importsMap.exists( location )) {
-			result = importsMap.get( location );
-			result.referrers.push( this );
-			if (!result.cycle) result.cycle = this.isCycle( location );
-			
-		} else {
-			result = new Fisel();
-			result.document = loadFile( location ).parse();
-			result.location = location;
-			result.referrers.push( this );
-			importsMap.set( location, result );
-			result.importsMap = importsMap;
-			result.cycle = this.isCycle( location );
-			result.find();
-			result.load();
+		while (refs.length > 0) {
+			for (r in refs.pop().referrers) if (results.lastIndexOf(r) == -1 && r.location != link.location) {
+				refs.push( r );
+				results.push( r );
+			}
 			
 		}
 		
-		trace( result.location.withoutDirectory() + ' ancestors are > ' + result.buildLineage().map( function(f) return f.location.withoutDirectory() ) );
-		trace( location.withoutDirectory() + '::' + result.cycle + '::' + result.referrers.length );
-		
-		return result;
-	}
-	
-	private static function buildLineage(fisel:Fisel):Array<Fisel> {
-		var result = [];
-		
-		for (r in fisel.referrers) {
-			result.push( r );
-			if (!r.cycle) result = result.concat( r.buildLineage() );
-		}
-		
-		return result;
+		return results;
 	}
 	
 }
