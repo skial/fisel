@@ -9,8 +9,9 @@
   "version": "0.0.1-alpha",
   "url": "https://github.com/skial/fisel",
   "dependencies": {
-    "mo": "",
+	"detox": "",
 	"uhu": "",
-	"detox": ""
+    "mo": "",
+	"klas": ""
   }
 }
