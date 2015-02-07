@@ -1,5 +1,6 @@
 package;
 
+import haxe.ds.StringMap;
 import uhx.mo.Token;
 import uhx.lexer.HtmlLexer;
 import sys.io.File;
@@ -58,17 +59,22 @@ class LibRunner extends Ioe implements Klas {
 		process();
 	}
 	
-	override private function process(i:Input = null, o:Output = null) {
+	@:access(Fisel) override private function process(i:Input = null, o:Output = null) {
 		super.process(
 			input == null ? null : (File.read( input ):Input), 
 			output == null ? null : (File.write( output ):Output)
 		);
 		
 		if (content != '') {
-			var fisel = new Fisel( content.parse() );
-			
+			var fisel = new Fisel();
+			fisel.document =  content.parse();
+			fisel.location = input == null ? Sys.getCwd() : input;
+			fisel.linkMap = new StringMap();
+			fisel.linkMap.set( fisel.location, fisel );
+			fisel.find();
 			fisel.load();
 			fisel.build();
+			
 			fisel.document = fisel.document.filter( noWhitespace );
 			stdout.writeString( pretty ? print( fisel.document.collection ).trim() : fisel.toString() );
 			
@@ -86,7 +92,7 @@ class LibRunner extends Ioe implements Klas {
 		if (node.nodeType == NodeType.Text && node.nodeValue.trim() == '') {
 			result = false;
 			
-		} else if (node.nodeType == NodeType.Element && node.hasChildNodes()) {
+		} else if ((node.nodeType == NodeType.Element || node.nodeType == NodeType.Document) && node.hasChildNodes()) {
 			node.childNodes = node.childNodes.filter( noWhitespace );
 			
 		}
@@ -106,7 +112,7 @@ class LibRunner extends Ioe implements Klas {
 			if (node.nodeType != NodeType.Text && i == 0) result += '\n';
 			
 			switch (node.nodeType) {
-				case NodeType.Element, NodeType.Unknown:
+				case NodeType.Element, NodeType.Document, NodeType.Unknown:
 					// Grab the underlying structure instead of accessing via the `DOMNode` abstract class.
 					ref = switch (node.token()) {
 						case Keyword(Tag(r)): r;
