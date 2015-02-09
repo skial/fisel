@@ -1,6 +1,8 @@
 package;
 
 import uhx.io.Uri;
+import uhx.lexer.CssLexer.CssSelectors;
+import uhx.lexer.SelectorParser;
 import uhx.mo.Token;
 import byte.ByteData;
 import uhx.select.Html;
@@ -124,8 +126,6 @@ class Fisel {
 	public var location:String;
 	
 	private var imports:DOMCollection;
-	private var insertionPoints:DOMCollection;
-	private var importCache:StringMap<Fisel> = new StringMap();
 	
 	public function new() {
 		/*var bases = document.find( 'base[href]' );
@@ -181,11 +181,145 @@ class Fisel {
 	}
 	
 	public function toString():String {
-		//build();
 		return document.html();
 	}
 	
+	/**
+	 * Flatten all imports into a single HTML file.
+	 */
 	public function build():Void {
+		var fisel:Fisel = null;
+		var head:DOMCollection;
+		var body:DOMCollection;
+		var parentHead = this.document.find( 'head' );
+		var parentBody = this.document.find( 'body' );
+		var insertionPoints = this.document.find( 'content[select]' );
+		
+		buildDependencies();
+		handleInsertions();
+		
+		for (link in links) if (!link.cycle) {
+			fisel = linkMap.get( link.location );
+			
+			head = fisel.document.find( 'head' );
+			body = fisel.document.find( 'body' );
+			
+			if (parentHead.length > 0 && head.length > 0 && head.length > 0 && head.getNode().hasChildNodes()) {
+				var _import = parentHead.find( 'link[rel="import"][href*="${link.location.withoutDirectory()}"]' );
+				// Ignore `<base />` and `<title>` tags as your only meant to have one.
+				var _content = head.getNode().find( ':not(head, base, title)' );
+				
+				if (_import != null && _import.length > 0 && _content != null && _content.length > 0) {
+					_import.replaceWith( _content );
+					
+				}
+				
+			}
+			
+			if (parentBody.length > 0 && body.length > 0 && body.length > 0 && body.getNode().hasChildNodes()) {
+				parentBody = parentBody.append( body.children( false ) );
+				
+			}
+			
+			// Is it just a HTML fragment without a `<head>` and `<body>`?
+			if (parentHead.length > 0 && parentBody.length > 0 && head.length == 0 && body.length == 0) {
+				parentHead = parentHead.append( fisel.document.find( 'style, link:not([rel="import"]), meta, script[async], script[defer]' ) );
+				parentBody = parentBody.append( fisel.document.find( ':not(style, link:not([rel="import"]), meta, script[async], script[defer])' ) );
+				
+			}
+			
+		}
+		
+		// Remove any remaining `<link rel="import" href="..." />` elements.
+		document.find( 'link[rel="import"]' ).remove();
+	}
+	
+	private function buildDependencies():Void {
+		var fisel:Fisel = null;
+		
+		for (link in links) if (!link.cycle) {
+			fisel = linkMap.get( link.location );
+			
+			// Call `build` on child imports so their imports are flattened before inclusion.
+			fisel.build();
+		}
+	}
+	
+	/**
+	 * This method only deals with selectors that match with
+	 * an imports href value. ie `href="path/to/some/File.html"` 
+	 * will match with `select="#File"`.
+	 */
+	private function handleInsertions():Void {
+		var id:String = '';
+		var fisel:Fisel = null;
+		var selector:CssSelectors;
+		var insertionPoints:DOMCollection = null;
+		var parser:SelectorParser = new SelectorParser();
+		var matched:Array<Link> = [];
+		
+		for (link in links) if (!link.cycle) {
+			fisel = linkMap.get( link.location );
+			insertionPoints = document.find( 'content[select]' );
+			
+			for (point in insertionPoints) {
+				selector = parser.toTokens( ByteData.ofString( point.attr( 'select' ) ), 'fisel-insert' );
+				
+				if (isID( selector )) {
+					id = getID( selector );
+					
+					if (link.location.withoutDirectory().indexOf( id ) > -1) {
+						point.replaceWith( fisel.document );
+						matched.push( link );
+						
+					}
+					
+				}
+				
+			}
+		}
+		
+		// Remove any matched links so they do get processed in the
+		// next step.
+		for (match in matched) links.remove( match );
+	}
+	
+	private function isCombinator(selector:CssSelectors):Bool {
+		var result = false;
+		
+		switch (selector) {
+			case Combinator(_, _, _): result = true;
+			case _:
+		}
+		
+		return result;
+	}
+	
+	private function isID(selector:CssSelectors):Bool {
+		var result = false;
+		
+		switch (selector) {
+			case ID(_): result = true;
+			case Combinator(a, _, _): result = isID(a);
+			case _:
+		}
+		
+		return result;
+	}
+	
+	private function getID(selector:CssSelectors):Null<String> {
+		var result = null;
+		
+		switch (selector) {
+			case ID(v): result = v;
+			case Combinator(a, _, _): result = getID(a);
+			case _:
+		}
+		
+		return result;
+	}
+	
+	/*public function build():Void {
 		/*for (key in importCache.keys()) importCache.get( key ).build();
 		
 		var attr;
@@ -262,15 +396,11 @@ class Fisel {
 		// Remove all `<link rel="import" />`
 		imports.remove();*/
 		
-		for (link in links) {
-			trace( link.location.withoutDirectory() );
-			//trace( link.location.withoutDirectory() + ' cycle status is ' + link.cycle + ' for document ' + location.withoutDirectory() );
-			trace( 'ancestors==' + linkMap.get( link.location ).lineage().map( function(s) return s.location.withoutDirectory() ) );
-			trace( 'predescessors==' + linkMap.get( link.location ).predecessors().map( function(s) return s.location.withoutDirectory() ) );
+		/*for (link in links) {
 			if (!link.cycle) linkMap.get( link.location ).build();
 			
 		}
-	}
+	}*/
 	
 	#if !js
 	public inline function loadFile(path:String):String {
