@@ -150,7 +150,7 @@ class Fisel {
 	
 	public function find():Void {
 		for (link in document.find( 'link[rel*="import"][href*=".htm"]' )) {
-			var l =  new Link( (location.directory() + '/' + link.attr( 'href' )).normalize() );
+			var l =  new Link( (location + '/' + link.attr( 'href' )).normalize() );
 			links.push( l );
 			l.cycle = Fisel.isCycle(l, this);
 		}
