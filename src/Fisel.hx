@@ -1,5 +1,6 @@
 package;
 
+import haxe.CallStack;
 import uhx.io.Uri;
 import uhx.lexer.CssLexer.CssSelectors;
 import uhx.lexer.SelectorParser;
@@ -154,6 +155,7 @@ class Fisel {
 			links.push( l );
 			l.cycle = Fisel.isCycle(l, this);
 		}
+		
 	}
 	
 	public function load():Void {
@@ -161,15 +163,16 @@ class Fisel {
 		var fisel:Fisel;
 		
 		for (link in links) {
-			
 			if (linkMap.exists( link.location )) {
 				linkMap.get( link.location ).referrers.push( this );
 				
 			} else {
+				trace( link.location, link.location.directory(), CallStack.toString(CallStack.callStack()) );
 				fisel = new Fisel();
 				fisel.linkMap = linkMap;
-				fisel.location = link.location;
-				fisel.document = loadFile( link.location ).parse();
+				fisel.location = link.location.directory();
+				// Wrap file content in a single element.
+				fisel.document = ('<fisel>' + loadFile( link.location ) + '</fisel>').parse();
 				linkMap.set( link.location, fisel );
 				fisel.referrers.push( this );
 				fisel.find();
@@ -178,6 +181,32 @@ class Fisel {
 			}
 			
 		}
+	}
+	
+	private static function debugPrettyPrint(tokens:Array<DOMNode>, tabs:String = ''):String {
+		var results = '';
+		
+		for (token in tokens) {
+			results += '\n$tabs';
+			switch (token) {
+				case Keyword(Tag( { name:n, attributes:a, tokens:t } )):
+					results += '<$n>::' + [for (k in a.keys()) '$k=${a.get(k)}'].join(', ');
+					if (t.length > 0) {
+						tabs += '  ';
+						results += '\n$tabs' + debugPrettyPrint( t, tabs );
+						tabs = tabs.substring(0, tabs.length - 2);
+					}
+					
+				case Keyword(Text( { tokens:t } )):
+					results += 'text::' + t.replace('\n', '\\n').replace('\t', '\\t').replace('\r', '\\r');
+					
+				case _:
+					
+			}
+			
+		}
+		
+		return results;
 	}
 	
 	public function toString():String {
@@ -194,7 +223,7 @@ class Fisel {
 		var parentHead = this.document.find( 'head' );
 		var parentBody = this.document.find( 'body' );
 		var insertionPoints = this.document.find( 'content[select]' );
-		
+		trace( 'building ' + this.location );
 		buildDependencies();
 		handleInsertions();
 		
@@ -268,8 +297,17 @@ class Fisel {
 				if (isID( selector )) {
 					id = getID( selector );
 					
+					trace( link.location.withoutDirectory(), id );
 					if (link.location.withoutDirectory().indexOf( id ) > -1) {
-						point.replaceWith( fisel.document );
+						var templates = fisel.document.find( 'template' );
+						templates.replaceWith( templates.text().parse() );
+						/*fisel.document.each( function(n) {
+							if (n.nodeName == 'template') {
+								n.replaceWith( n.text().parse() );
+							}
+						} );*/
+						
+						point.replaceWith( fisel.document.children() );
 						matched.push( link );
 						
 					}
