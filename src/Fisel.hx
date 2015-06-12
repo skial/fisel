@@ -160,6 +160,7 @@ class Fisel {
 	public function load():Void {
 		var path = '';
 		var fisel:Fisel;
+		var content = '';
 		
 		for (link in links) {
 			if (linkMap.exists( link.location )) {
@@ -171,7 +172,8 @@ class Fisel {
 				fisel.location = link.location;
 				
 				// Wrap file content in a single element.
-				fisel.document = ('<fisel>' + loadFile( link.location ) + '</fisel>').parse();
+				content = loadFile( link.location );
+				fisel.document = ('<fisel>' + content + '</fisel>').parse();
 				// Replace `<template>` elements with its content early, else where is too late.
 				var templates = fisel.document.find( 'template' );
 				templates.replaceWith( templates.text().parse() );
@@ -226,7 +228,8 @@ class Fisel {
 		var parentHead = this.document.find( 'head' );
 		var parentBody = this.document.find( 'body' );
 		var insertionPoints = this.document.find( 'content[select]' );
-		
+		trace( 'building ' + this.location );
+		trace( debugPrettyPrint(this.document.collection) );
 		buildDependencies();
 		handleInsertions();
 		
@@ -242,21 +245,21 @@ class Fisel {
 				var _content = head.getNode().find( ':not(head, base, title)' );
 				
 				if (_import != null && _import.length > 0 && _content != null && _content.length > 0) {
-					_import.replaceWith( _content );
+					_import.replaceWith( _content.clone() );
 					
 				}
 				
 			}
 			
 			if (parentBody.length > 0 && body.length > 0 && body.length > 0 && body.getNode().hasChildNodes()) {
-				parentBody = parentBody.append( body.children( false ) );
+				parentBody = parentBody.append( body.children( false ).clone() );
 				
 			}
 			
 			// Is it just a HTML fragment without a `<head>` and `<body>`?
 			if (parentHead.length > 0 && parentBody.length > 0 && head.length == 0 && body.length == 0) {
-				parentHead = parentHead.append( fisel.document.find( 'style, link:not([rel="import"]), meta, script[async], script[defer]' ) );
-				parentBody = parentBody.append( fisel.document.find( ':not(style, link:not([rel="import"]), meta, script[async], script[defer])' ) );
+				parentHead = parentHead.append( fisel.document.find( 'style, link:not([rel="import"]), meta, script[async], script[defer]' ).clone() );
+				parentBody = parentBody.append( fisel.document.find( ':not(style, link:not([rel="import"]), meta, script[async], script[defer])' ).clone() );
 				
 			}
 			
@@ -301,7 +304,7 @@ class Fisel {
 					id = getID( selector );
 					
 					if (link.location.withoutDirectory().indexOf( id ) > -1) {
-						point.replaceWith( fisel.document.children() );
+						point.replaceWith( fisel.document.children().clone() );
 						matched.push( link );
 						
 					}
@@ -435,7 +438,7 @@ class Fisel {
 	}*/
 	
 	#if !js
-	public inline function loadFile(path:String):String {
+	public inline function loadFile(path:String):Null<String> {
 		path = path.normalize();
 		if (path.exists()) {
 			return path.getContent();
