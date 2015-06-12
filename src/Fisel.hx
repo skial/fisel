@@ -228,8 +228,7 @@ class Fisel {
 		var parentHead = this.document.find( 'head' );
 		var parentBody = this.document.find( 'body' );
 		var insertionPoints = this.document.find( 'content[select]' );
-		trace( 'building ' + this.location );
-		trace( debugPrettyPrint(this.document.collection) );
+		
 		buildDependencies();
 		handleInsertions();
 		
