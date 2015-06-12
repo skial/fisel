@@ -154,14 +154,15 @@ class Fisel {
 			links.push( l );
 			l.cycle = Fisel.isCycle(l, this);
 		}
+		
 	}
 	
 	public function load():Void {
 		var path = '';
 		var fisel:Fisel;
+		var content = '';
 		
 		for (link in links) {
-			
 			if (linkMap.exists( link.location )) {
 				linkMap.get( link.location ).referrers.push( this );
 				
@@ -169,7 +170,14 @@ class Fisel {
 				fisel = new Fisel();
 				fisel.linkMap = linkMap;
 				fisel.location = link.location;
-				fisel.document = loadFile( link.location ).parse();
+				
+				// Wrap file content in a single element.
+				content = loadFile( link.location );
+				fisel.document = ('<fisel>' + content + '</fisel>').parse();
+				// Replace `<template>` elements with its content early, else where is too late.
+				var templates = fisel.document.find( 'template' );
+				templates.replaceWith( templates.text().parse() );
+				
 				linkMap.set( link.location, fisel );
 				fisel.referrers.push( this );
 				fisel.find();
@@ -178,6 +186,32 @@ class Fisel {
 			}
 			
 		}
+	}
+	
+	private static function debugPrettyPrint(tokens:Array<DOMNode>, tabs:String = ''):String {
+		var results = '';
+		
+		for (token in tokens) {
+			results += '\n$tabs';
+			switch (token) {
+				case Keyword(Tag( { name:n, attributes:a, tokens:t } )):
+					results += '<$n>::' + [for (k in a.keys()) '$k=${a.get(k)}'].join(', ');
+					if (t.length > 0) {
+						tabs += '  ';
+						results += '\n$tabs' + debugPrettyPrint( t, tabs );
+						tabs = tabs.substring(0, tabs.length - 2);
+					}
+					
+				case Keyword(Text( { tokens:t } )):
+					results += 'text::' + t.replace('\n', '\\n').replace('\t', '\\t').replace('\r', '\\r');
+					
+				case _:
+					
+			}
+			
+		}
+		
+		return results;
 	}
 	
 	public function toString():String {
@@ -210,21 +244,21 @@ class Fisel {
 				var _content = head.getNode().find( ':not(head, base, title)' );
 				
 				if (_import != null && _import.length > 0 && _content != null && _content.length > 0) {
-					_import.replaceWith( _content );
+					_import.replaceWith( _content.clone() );
 					
 				}
 				
 			}
 			
 			if (parentBody.length > 0 && body.length > 0 && body.length > 0 && body.getNode().hasChildNodes()) {
-				parentBody = parentBody.append( body.children( false ) );
+				parentBody = parentBody.append( body.children( false ).clone() );
 				
 			}
 			
 			// Is it just a HTML fragment without a `<head>` and `<body>`?
 			if (parentHead.length > 0 && parentBody.length > 0 && head.length == 0 && body.length == 0) {
-				parentHead = parentHead.append( fisel.document.find( 'style, link:not([rel="import"]), meta, script[async], script[defer]' ) );
-				parentBody = parentBody.append( fisel.document.find( ':not(style, link:not([rel="import"]), meta, script[async], script[defer])' ) );
+				parentHead = parentHead.append( fisel.document.find( 'style, link:not([rel="import"]), meta, script[async], script[defer]' ).clone() );
+				parentBody = parentBody.append( fisel.document.find( ':not(style, link:not([rel="import"]), meta, script[async], script[defer])' ).clone() );
 				
 			}
 			
@@ -269,7 +303,7 @@ class Fisel {
 					id = getID( selector );
 					
 					if (link.location.withoutDirectory().indexOf( id ) > -1) {
-						point.replaceWith( fisel.document );
+						point.replaceWith( fisel.document.children().clone() );
 						matched.push( link );
 						
 					}
@@ -403,7 +437,7 @@ class Fisel {
 	}*/
 	
 	#if !js
-	public inline function loadFile(path:String):String {
+	public inline function loadFile(path:String):Null<String> {
 		path = path.normalize();
 		if (path.exists()) {
 			return path.getContent();
