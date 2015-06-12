@@ -1,6 +1,5 @@
 package;
 
-import haxe.CallStack;
 import uhx.io.Uri;
 import uhx.lexer.CssLexer.CssSelectors;
 import uhx.lexer.SelectorParser;
@@ -167,7 +166,6 @@ class Fisel {
 				linkMap.get( link.location ).referrers.push( this );
 				
 			} else {
-				trace( link.location, link.location.directory(), CallStack.toString(CallStack.callStack()) );
 				fisel = new Fisel();
 				fisel.linkMap = linkMap;
 				fisel.location = link.location;
