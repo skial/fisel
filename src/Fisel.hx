@@ -302,7 +302,6 @@ class Fisel {
 				if (isID( selector )) {
 					id = getID( selector );
 					
-					trace( link.location.withoutDirectory(), id );
 					if (link.location.withoutDirectory().indexOf( id ) > -1) {
 						point.replaceWith( fisel.document.children() );
 						matched.push( link );
