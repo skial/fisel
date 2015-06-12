@@ -151,7 +151,7 @@ class Fisel {
 	
 	public function find():Void {
 		for (link in document.find( 'link[rel*="import"][href*=".htm"]' )) {
-			var l =  new Link( (location + '/' + link.attr( 'href' )).normalize() );
+			var l =  new Link( (location.directory() + '/' + link.attr( 'href' )).normalize() );
 			links.push( l );
 			l.cycle = Fisel.isCycle(l, this);
 		}
@@ -170,9 +170,14 @@ class Fisel {
 				trace( link.location, link.location.directory(), CallStack.toString(CallStack.callStack()) );
 				fisel = new Fisel();
 				fisel.linkMap = linkMap;
-				fisel.location = link.location.directory();
+				fisel.location = link.location;
+				
 				// Wrap file content in a single element.
 				fisel.document = ('<fisel>' + loadFile( link.location ) + '</fisel>').parse();
+				// Replace `<template>` elements with its content early, else where is too late.
+				var templates = fisel.document.find( 'template' );
+				templates.replaceWith( templates.text().parse() );
+				
 				linkMap.set( link.location, fisel );
 				fisel.referrers.push( this );
 				fisel.find();
@@ -223,7 +228,7 @@ class Fisel {
 		var parentHead = this.document.find( 'head' );
 		var parentBody = this.document.find( 'body' );
 		var insertionPoints = this.document.find( 'content[select]' );
-		trace( 'building ' + this.location );
+		
 		buildDependencies();
 		handleInsertions();
 		
@@ -299,14 +304,6 @@ class Fisel {
 					
 					trace( link.location.withoutDirectory(), id );
 					if (link.location.withoutDirectory().indexOf( id ) > -1) {
-						var templates = fisel.document.find( 'template' );
-						templates.replaceWith( templates.text().parse() );
-						/*fisel.document.each( function(n) {
-							if (n.nodeName == 'template') {
-								n.replaceWith( n.text().parse() );
-							}
-						} );*/
-						
 						point.replaceWith( fisel.document.children() );
 						matched.push( link );
 						
