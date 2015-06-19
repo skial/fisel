@@ -43,10 +43,13 @@ using sys.FileSystem;
   * - [x] Remove `<link rel="import" />` when `Fisel::build` has been run.
   */
 
-@:forward @:enum abstract Target(String) from String to String {
-	public var TEXT = 'text';
+@:forward @:enum abstract DataType(String) from String to String {
+	//public var CSV = 'csv';
+	//public var MARKDOWN = 'markdown';
+	public var XML = 'xml';
 	public var JSON = 'json';
-	public var DOM = 'dom';		// default
+	public var HTML = 'html';		// default
+	public var TEXT = 'plain';
 }
 
 @:forward @:enum abstract Action(String) from String to String {
@@ -80,7 +83,7 @@ class Fisel {
 	}
 	
 	private static var _ignore:Array<String> = ['select', 'data-text', 'data-json', 'text', 'json', 'data-dom', 'dom'];
-	private static var _targets:Array<String> = [Target.TEXT, Target.JSON, Target.DOM];
+	private static var _targets:Array<String> = [DataType.TEXT, DataType.JSON, DataType.HTML];
 	private static var _actions:Array<String> = [Action.COPY, Action.MOVE];
 	
 	/**
@@ -291,6 +294,7 @@ class Fisel {
 		var insertionPoints:DOMCollection = null;
 		var parser:SelectorParser = new SelectorParser();
 		var matched:Array<Link> = [];
+		var dataType:MediaType;
 		
 		for (link in links) if (!link.cycle) {
 			fisel = linkMap.get( link.location );
@@ -299,18 +303,39 @@ class Fisel {
 			for (point in insertionPoints) {
 				selector = parser.toTokens( ByteData.ofString( point.attr( 'select' ) ), 'fisel-insert' );
 				
-				if (isID( selector )) {
-					id = getID( selector );
+				if (point.attr( 'data-type' ) != '') {
+					dataType = point.attr( 'data-type' ).toLowerCase();
 					
-					if (link.location.withoutDirectory().indexOf( id ) > -1) {
-						point.replaceWith( fisel.document.children().clone() );
+				} else {
+					dataType = 'text/html';
+					
+				}
+				
+				if (dataType.isText) switch (dataType.subtype) {
+					case DataType.TEXT:
+						point.replaceWith( fisel.document.find( point.attr( 'select' ) ).text().parse() );
 						matched.push( link );
 						
-					}
+					case DataType.JSON:
+						
+						
+					case _:
+						// Implies DataType.HTML or DataType.XML
+						if (isID( selector )) {
+							id = getID( selector );
+							
+							if (link.location.withoutDirectory().indexOf( id ) > -1) {
+								point.replaceWith( fisel.document.children().clone() );
+								matched.push( link );
+								
+							}
+							
+						}
 					
 				}
 				
 			}
+			
 		}
 		
 		// Remove any matched links so they do get processed in the
