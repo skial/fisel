@@ -52,9 +52,9 @@ using sys.FileSystem;
 	public var TEXT = 'plain';
 }
 
-@:forward @:enum abstract Action(String) from String to String {
-	public var MOVE = 'move';
+@:forward @:enum abstract DataAction(String) from String to String {
 	public var COPY = 'copy';	// default
+	public var REMOVE = 'remove';
 }
 
 private class Link {
@@ -82,9 +82,9 @@ class Fisel {
 		
 	}
 	
-	private static var _ignore:Array<String> = ['select', 'data-text', 'data-json', 'text', 'json', 'data-dom', 'dom'];
+	private static var _ignore:Array<String> = ['select', 'data-type'];
 	private static var _targets:Array<String> = [DataType.TEXT, DataType.JSON, DataType.HTML];
-	private static var _actions:Array<String> = [Action.COPY, Action.MOVE];
+	private static var _actions:Array<String> = [DataAction.COPY, DataAction.REMOVE];
 	
 	/**
 	 * Goes through the `parent`'s referrers link list
@@ -295,12 +295,15 @@ class Fisel {
 		var parser:SelectorParser = new SelectorParser();
 		var matched:Array<Link> = [];
 		var dataType:MediaType;
+		var dataAction:DataAction;
+		var nodes:DOMCollection;
 		
 		for (link in links) if (!link.cycle) {
 			fisel = linkMap.get( link.location );
 			insertionPoints = document.find( 'content[select]' );
 			
 			for (point in insertionPoints) {
+				nodes = new DOMCollection();
 				selector = parser.toTokens( ByteData.ofString( point.attr( 'select' ) ), 'fisel-insert' );
 				
 				if (point.attr( 'data-type' ) != '') {
@@ -311,12 +314,21 @@ class Fisel {
 					
 				}
 				
+				if (point.attr( 'data-action' ) != '') {
+					dataAction = point.attr( 'data-action' ).toLowerCase();
+					
+				} else {
+					dataAction = DataAction.COPY;
+					
+				}
+				
 				if (dataType.isText) switch (dataType.subtype) {
 					case DataType.TEXT:
 						var text = fisel.document.find( point.attr( 'select' ) );
 						if (text.length > 0) {
 							point.replaceWith( text.text().parse() );
 							matched.push( link );
+							nodes.addCollection( text );
 							
 						}
 						
@@ -337,6 +349,8 @@ class Fisel {
 						}
 					
 				}
+				
+				if (dataAction == DataAction.REMOVE) nodes.remove();
 				
 			}
 			
