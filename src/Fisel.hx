@@ -101,6 +101,8 @@ class Fisel {
 		return result;
 	}
 	
+	public var data:StringMap<Dynamic> = new StringMap();
+	
 	/**
 	 * This HTML document.
 	 */
