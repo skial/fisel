@@ -53,6 +53,12 @@ class LibRunner extends Ioe implements Klas {
 	@alias('p')
 	public var pretty:Bool = false;
 	
+	/**
+	 * An array of json files.
+	 */
+	@alias('d')
+	public var data:Array<String> = [];
+	
 	public function new(args:Array<String>) {
 		super();
 		@:cmd _;
@@ -67,6 +73,12 @@ class LibRunner extends Ioe implements Klas {
 		
 		if (content != '') {
 			var fisel = new Fisel();
+			
+			for (json in data) if ((json = json.normalize()).exists() && !json.isDirectory()) {
+				fisel.data.set( json, haxe.Json.parse( File.getContent( json ) ) );
+				
+			}
+			
 			fisel.document =  content.parse();
 			fisel.location = input == null ? Sys.getCwd() : input;
 			fisel.linkMap = new StringMap();
