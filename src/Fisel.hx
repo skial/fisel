@@ -313,8 +313,12 @@ class Fisel {
 				
 				if (dataType.isText) switch (dataType.subtype) {
 					case DataType.TEXT:
-						point.replaceWith( fisel.document.find( point.attr( 'select' ) ).text().parse() );
-						matched.push( link );
+						var text = fisel.document.find( point.attr( 'select' ) );
+						if (text.length > 0) {
+							point.replaceWith( text.text().parse() );
+							matched.push( link );
+							
+						}
 						
 					case DataType.JSON:
 						
