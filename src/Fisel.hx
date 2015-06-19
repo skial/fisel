@@ -1,12 +1,13 @@
 package;
 
 import uhx.io.Uri;
-import uhx.lexer.CssLexer.CssSelectors;
-import uhx.lexer.SelectorParser;
 import uhx.mo.Token;
 import byte.ByteData;
 import uhx.select.Html;
+import uhx.select.Json;
 import haxe.ds.StringMap;
+import uhx.lexer.SelectorParser;
+import uhx.lexer.CssLexer.CssSelectors;
 
 using Fisel;
 using Detox;
@@ -308,21 +309,8 @@ class Fisel {
 				nodes = new DOMCollection();
 				selector = parser.toTokens( ByteData.ofString( point.attr( 'select' ) ), 'fisel-insert' );
 				
-				if (point.attr( 'data-type' ) != '') {
-					dataType = point.attr( 'data-type' ).toLowerCase();
-					
-				} else {
-					dataType = 'text/html';
-					
-				}
-				
-				if (point.attr( 'data-action' ) != '') {
-					dataAction = point.attr( 'data-action' ).toLowerCase();
-					
-				} else {
-					dataAction = DataAction.COPY;
-					
-				}
+				dataType = point.attr( 'data-type' ) != '' ? point.attr( 'data-type' ).toLowerCase() : 'text/html';
+				dataAction = point.attr( 'data-action' ) != '' ? point.attr( 'data-action' ).toLowerCase() : DataAction.COPY;
 				
 				if (dataType.isText) switch (dataType.subtype) {
 					case DataType.TEXT:
@@ -335,7 +323,17 @@ class Fisel {
 						}
 						
 					case DataType.JSON:
+						var info = [];
+						for (key in data.keys()) {
+							info = info.concat( Json.find( data.get( key ), point.attr( 'select' ) ) );
+							
+						}
 						
+						if (info.length > 0) {
+							point.replaceWith( info.join('').parse() );
+							matched.push( link );
+							
+						}
 						
 					case _:
 						// Implies DataType.HTML or DataType.XML
