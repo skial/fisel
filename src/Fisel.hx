@@ -53,7 +53,7 @@ using sys.FileSystem;
 	public var TEXT = 'plain';
 }
 
-@:forward @:enum abstract DataAction(String) from String to String {
+@:forward @:enum abstract DataTarget(String) from String to String {
 	public var COPY = 'copy';	// default
 	public var REMOVE = 'remove';
 }
@@ -85,7 +85,7 @@ class Fisel {
 	
 	private static var _ignore:Array<String> = ['select', 'data-type'];
 	private static var _targets:Array<String> = [DataType.TEXT, DataType.JSON, DataType.HTML];
-	private static var _actions:Array<String> = [DataAction.COPY, DataAction.REMOVE];
+	private static var _actions:Array<String> = [DataTarget.COPY, DataTarget.REMOVE];
 	
 	/**
 	 * Goes through the `parent`'s referrers link list
@@ -298,7 +298,7 @@ class Fisel {
 		var parser:SelectorParser = new SelectorParser();
 		var matched:Array<Link> = [];
 		var dataType:MediaType;
-		var dataAction:DataAction;
+		var dataAction:DataTarget;
 		var nodes:DOMCollection;
 		
 		for (link in links) if (!link.cycle) {
@@ -310,7 +310,7 @@ class Fisel {
 				selector = parser.toTokens( ByteData.ofString( point.attr( 'select' ) ), 'fisel-insert' );
 				
 				dataType = point.attr( 'data-type' ) != '' ? point.attr( 'data-type' ).toLowerCase() : 'text/html';
-				dataAction = point.attr( 'data-action' ) != '' ? point.attr( 'data-action' ).toLowerCase() : DataAction.COPY;
+				dataAction = point.attr( 'data-target' ) != '' ? point.attr( 'data-target' ).toLowerCase() : DataTarget.COPY;
 				
 				if (dataType.isText) switch (dataType.subtype) {
 					case DataType.TEXT:
@@ -350,7 +350,7 @@ class Fisel {
 					
 				}
 				
-				if (dataAction == DataAction.REMOVE) nodes.remove();
+				if (dataAction == DataTarget.REMOVE) nodes.remove();
 				
 			}
 			
