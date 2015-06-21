@@ -341,7 +341,7 @@ class Fisel {
 						}
 						
 					case _:
-						// Implies DataType.HTML or DataType.XML
+						// Implies Source.HTML or Source.XML
 						if (isID( selector )) {
 							id = getID( selector );
 							
