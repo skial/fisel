@@ -44,7 +44,7 @@ using sys.FileSystem;
   * - [x] Remove `<link rel="import" />` when `Fisel::build` has been run.
   */
 
-@:forward @:enum abstract DataType(String) from String to String {
+@:forward @:enum private abstract Source(String) from String to String {
 	//public var CSV = 'csv';
 	//public var MARKDOWN = 'markdown';
 	public var XML = 'xml';
@@ -53,9 +53,14 @@ using sys.FileSystem;
 	public var TEXT = 'plain';
 }
 
-@:forward @:enum abstract DataTarget(String) from String to String {
+@:forward @:enum private abstract Action(String) from String to String {
 	public var COPY = 'copy';	// default
 	public var REMOVE = 'remove';
+}
+
+@:enum private abstract Data(String) from String to String {
+	public var TARGET = 'data-target';
+	public var TYPE = 'data-type';
 }
 
 private class Link {
@@ -84,8 +89,8 @@ class Fisel {
 	}
 	
 	private static var _ignore:Array<String> = ['select', 'data-type'];
-	private static var _targets:Array<String> = [DataType.TEXT, DataType.JSON, DataType.HTML];
-	private static var _actions:Array<String> = [DataTarget.COPY, DataTarget.REMOVE];
+	private static var _targets:Array<String> = [Source.TEXT, Source.HTML, Source.JSON];
+	private static var _actions:Array<String> = [Action.COPY, Action.REMOVE];
 	
 	/**
 	 * Goes through the `parent`'s referrers link list
@@ -298,7 +303,7 @@ class Fisel {
 		var parser:SelectorParser = new SelectorParser();
 		var matched:Array<Link> = [];
 		var dataType:MediaType;
-		var dataAction:DataTarget;
+		var dataAction:Action;
 		var nodes:DOMCollection;
 		
 		for (link in links) if (!link.cycle) {
@@ -309,11 +314,11 @@ class Fisel {
 				nodes = new DOMCollection();
 				selector = parser.toTokens( ByteData.ofString( point.attr( 'select' ) ), 'fisel-insert' );
 				
-				dataType = point.attr( 'data-type' ) != '' ? point.attr( 'data-type' ).toLowerCase() : 'text/html';
-				dataAction = point.attr( 'data-target' ) != '' ? point.attr( 'data-target' ).toLowerCase() : DataTarget.COPY;
+				dataType = point.attr( Data.TYPE ) != '' ? point.attr( Data.TYPE ).toLowerCase() : 'text/html';
+				dataAction = point.attr( Data.TARGET ) != '' ? point.attr( Data.TARGET ).toLowerCase() : Action.COPY;
 				
 				if (dataType.isText) switch (dataType.subtype) {
-					case DataType.TEXT:
+					case Source.TEXT:
 						var text = fisel.document.find( point.attr( 'select' ) );
 						if (text.length > 0) {
 							point.replaceWith( text.text().parse() );
@@ -322,7 +327,7 @@ class Fisel {
 							
 						}
 						
-					case DataType.JSON:
+					case Source.JSON:
 						var info = [];
 						for (key in data.keys()) {
 							info = info.concat( Json.find( data.get( key ), point.attr( 'select' ) ) );
@@ -350,7 +355,7 @@ class Fisel {
 					
 				}
 				
-				if (dataAction == DataTarget.REMOVE) nodes.remove();
+				if (dataAction == Action.REMOVE) nodes.remove();
 				
 			}
 			
