@@ -358,11 +358,13 @@ class Fisel {
 										var nodeAttribute = node.attr( attribute.name );
 										var separator = findSeparator( nodeAttribute );
 										var nodeParts = nodeAttribute.split( separator );
-										var pointParts = attribute.value.split( separator ).filter( function(s) {
-											return nodeParts.indexOf( s ) == -1;
-										} );
 										
-										node.setAttr( attribute.name, nodeParts.concat( pointParts ).join( separator ) );
+										node.setAttr( 
+											attribute.name, 
+											nodeParts.concat( attribute.value.split( separator ).filter( function(s) {
+												return nodeParts.indexOf( s ) == -1;
+											} ) ).join( separator ) 
+										);
 										
 									}
 									
