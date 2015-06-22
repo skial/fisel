@@ -59,7 +59,7 @@ using sys.FileSystem;
 	public var REMOVE = 'remove';
 }
 
-@:enum private abstract Data(String) from String to String {
+@:forward @:enum private abstract Data(String) from String to String {
 	public var TARGET = 'data-target';
 	public var TYPE = 'data-type';
 }
