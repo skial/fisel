@@ -355,19 +355,9 @@ class Fisel {
 										node.setAttr( attribute.name, attribute.value );
 										
 									} else {
-										var separator = ' ';
-										var space = 0;
-										var dash = 0;
-										
-										for (char in node.attr( attribute.name ).split('')) switch (char) {
-											case ' ': space++;
-											case '-': dash++;
-											case _:
-										}
-										
-										if (space < dash) separator = '-';
-										
-										var nodeParts = node.attr( attribute.name ).split( separator );
+										var nodeAttribute = node.attr( attribute.name );
+										var separator = findSeparator( nodeAttribute );
+										var nodeParts = nodeAttribute.split( separator );
 										var pointParts = attribute.value.split( separator ).filter( function(s) {
 											return nodeParts.indexOf( s ) == -1;
 										} );
@@ -396,6 +386,23 @@ class Fisel {
 		// Remove any matched links so they do get processed in the
 		// next step.
 		for (match in matched) links.remove( match );
+	}
+	
+	/**
+	 * Crudely determines if a space ` ` or a dash `-` is
+	 * separating the values.
+	 */
+	private function findSeparator(value:String):String {
+		var space = 0;
+		var dash = 0;
+		
+		for (character in value.split('')) switch (character) {
+			case ' ': space++;
+			case '-': dash++;
+			case _:
+		}
+		
+		return space < dash ? '-' : ' ';
 	}
 	
 	private function isCombinator(selector:CssSelectors):Bool {
@@ -432,89 +439,6 @@ class Fisel {
 		
 		return result;
 	}
-	
-	/*public function build():Void {
-		/*for (key in importCache.keys()) importCache.get( key ).build();
-		
-		var attr;
-		var matches;
-		var targets;
-		for (content in insertionPoints) {
-			attr = content.attr( 'select' );
-			
-			if (attr.startsWith('#') && importCache.exists( attr.substring(1) )) {
-				content.replaceWith( 
-					importCache.get( attr = attr.substring(1) ).document.find( 'template:first-child' ).innerHTML().htmlUnescape().parse() 
-				);
-				
-			} else {
-				matches = document.find( attr );
-				
-				if (matches.length != 0) {
-					var attributes = [for (a in content.attributes) a].filter( 
-						function(a) {
-							a.name = a.name.startsWith('data-') ? a.name.substring(5) : a.name;
-							return _targets.indexOf(a.name) > -1 || _actions.indexOf(a.value) > -1;
-						}
-					);
-					
-					switch (attributes[0]) {
-						case { name:Target.TEXT, value:Action.MOVE }:
-							content.replaceWith( matches.text().parse() );
-							matches.remove();
-							
-						case { name:Target.TEXT, value:Action.COPY } | { name:Target.TEXT }:
-							content.replaceWith( matches.text().parse() );
-							
-						case { name:Target.JSON } :
-							
-							
-						case { name:Target.DOM, value:Action.MOVE } :
-							targets = matches;
-							content.replaceWith( targets );
-							
-						case { name:Target.DOM, value:Action.COPY } | { name:Target.DOM } | null | _:
-							targets = matches.clone();
-							content.replaceWith( targets );
-							
-					}
-					
-					attributes = [for (a in content.attributes) a].filter(
-						function(a) return _ignore.indexOf( a.name ) == -1
-					);
-					
-					var value;
-					var separator;
-					if (targets != null) {
-						for (target in targets) for (a in attributes) if ((value = target.attr( a.name )) == '') {
-							target.setAttr(a.name, a.value);
-							
-						} else if (value.indexOf( a.value ) == -1) {
-							separator = !value.startsWith('-') && value.indexOf('-') > -1? '-' : ' ';
-							target.setAttr( a.name, '$value$separator${a.value}' );
-							
-						}
-						
-						targets = null;
-						
-					}
-				}
-				
-			}
-			
-		}
-		
-		// Remove any unresolved `<content select="..." />`
-		document.find( 'content[select]' ).remove();
-		
-		// Remove all `<link rel="import" />`
-		imports.remove();*/
-		
-		/*for (link in links) {
-			if (!link.cycle) linkMap.get( link.location ).build();
-			
-		}
-	}*/
 	
 	#if !js
 	public inline function loadFile(path:String):Null<String> {
