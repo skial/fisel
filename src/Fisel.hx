@@ -6,6 +6,7 @@ import byte.ByteData;
 import uhx.select.Html;
 import uhx.select.Json;
 import haxe.ds.StringMap;
+import uhx.lexer.MimeLexer;
 import uhx.lexer.SelectorParser;
 import uhx.lexer.CssLexer.CssSelectors;
 
@@ -91,6 +92,7 @@ class Fisel {
 	private static var _ignore:Array<String> = ['select', Data.TYPE, Data.TARGET];
 	private static var _targets:Array<String> = [Source.TEXT, Source.HTML, Source.JSON];
 	private static var _actions:Array<String> = [Action.COPY, Action.REMOVE];
+	private static var _mediaType:MediaType = new MediaType( [Keyword(Toplevel('text')), Keyword(Subtype('html'))] );
 	
 	/**
 	 * Goes through the `parent`'s referrers link list
@@ -302,7 +304,7 @@ class Fisel {
 		var insertionPoints:DOMCollection = null;
 		var parser:SelectorParser = new SelectorParser();
 		var matched:Array<Link> = [];
-		var dataType:MediaType;
+		var mediaType:MediaType;
 		var dataAction:Action;
 		var nodes:DOMCollection;
 		
@@ -312,12 +314,11 @@ class Fisel {
 			
 			for (point in insertionPoints) {
 				nodes = new DOMCollection();
-				selector = parser.toTokens( ByteData.ofString( point.attr( 'select' ) ), 'fisel-insert' );
 				
-				dataType = point.attr( Data.TYPE ) != '' ? point.attr( Data.TYPE ).toLowerCase() : 'text/html';
+				mediaType = point.attr( Data.TYPE ) != '' ? point.attr( Data.TYPE ).toLowerCase() : _mediaType;
 				dataAction = point.attr( Data.TARGET ) != '' ? point.attr( Data.TARGET ).toLowerCase() : Action.COPY;
 				
-				if (dataType.isText) switch (dataType.subtype) {
+				if (mediaType.isText) switch (mediaType.subtype) {
 					case Source.TEXT:
 						var text = fisel.document.find( point.attr( 'select' ) );
 						if (text.length > 0) {
@@ -342,6 +343,8 @@ class Fisel {
 						
 					case _:
 						// Implies Source.HTML or Source.XML
+						selector = parser.toTokens( ByteData.ofString( point.attr( 'select' ) ), 'fisel-insert' );
+						
 						if (isID( selector )) {
 							id = getID( selector );
 							
