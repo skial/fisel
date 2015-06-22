@@ -114,7 +114,7 @@ class Fisel {
 	/**
 	 * This HTML document.
 	 */
-	public var document:DOMCollection;
+	@:isVar public var document(default, set):DOMCollection;
 	
 	/**
 	 * A list of `<link rel="import" href="..." />`'s found in this HTML document.
@@ -134,40 +134,81 @@ class Fisel {
 	private var referrers:Array<Fisel> = [];
 	
 	/**
-	 * The url to the import.
+	 * The base uri.
+	 */
+	public var root:String;
+	
+	/**
+	 * The uri to the import.
 	 */
 	public var location:String;
 	
 	private var imports:DOMCollection;
 	
 	public function new() {
-		/*var bases = document.find( 'base[href]' );
+		//var bases = document.find( 'base[href]' );
 		
-		if (path == null) {
+		//if (path == null) {
 			// If no `<base />` is found, set the root uri to the current working directory.
-			if (bases.length == 0) {
-				location = #if !js Sys.getCwd().normalize() #else js.Browser.document.location.host #end;
+			/*if (bases.length == 0) {
+				location = 
+				#if !js 
+					Sys.getCwd().normalize() 
+				#else 
+					js.Browser.document.location.host 
+				#end;
 				
-			} else {
-				var _base = bases.collection[0].attr( 'href' ).normalize();
-				_base = !_base.isAbsolute() ? (#if !js Sys.getCwd() #else js.Browser.document.location.host #end + _base).normalize() : _base;
+			} else*//*if (bases.length > 0) {
+				var _base = bases.getNode().attr( 'href' ).normalize();
+				_base = !_base.isAbsolute() ? (
+				#if !js
+					Sys.getCwd() 
+				#else 
+					js.Browser.document.location.host 
+				#end 
+				.addTrailingSlash() + _base).normalize() : _base;
 				location = _base;
-				
 			}
 			
-		} else {
+		/*} else {
 			location = path;
 			
 		}*/
+		//trace( location );
 	}
 	
 	public function find():Void {
+		if (root == null) {
+			var bases = document.find( 'base[href]' );
+			
+			if (bases.length > 0) {
+				root = bases.getNode().attr( 'href' ).normalize();
+				
+				if (!root.isAbsolute()) root = getRoot();
+				
+			} else {
+				root = getRoot();
+				
+			}
+			
+		}
+		
 		for (link in document.find( 'link[rel*="import"][href*=".htm"]' )) {
-			var l =  new Link( (location.directory() + '/' + link.attr( 'href' )).normalize() );
+			var l =  new Link( (location.directory().addTrailingSlash() + link.attr( 'href' )).normalize() );
 			links.push( l );
 			l.cycle = Fisel.isCycle(l, this);
 		}
 		
+	}
+	
+	private function getRoot():String {
+		return 
+		#if !js
+			Sys.getCwd()
+		#else
+			js.Browser.document.location.host
+		#end
+		.normalize();
 	}
 	
 	public function load():Void {
@@ -457,6 +498,11 @@ class Fisel {
 		return '';
 	}
 	#end
+	
+	private function set_document(v:DOMCollection):DOMCollection {
+		document = v;
+		return document;
+	}
 	
 	/**
 	 * Returns an array of `Fisel` instances which preceede
