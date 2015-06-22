@@ -355,7 +355,24 @@ class Fisel {
 										node.setAttr( attribute.name, attribute.value );
 										
 									} else {
-										node.setAttr( attribute.name, node.attr( attribute.name ) + ' ' + attribute.value );
+										var separator = ' ';
+										var space = 0;
+										var dash = 0;
+										
+										for (char in node.attr( attribute.name ).split('')) switch (char) {
+											case ' ': space++;
+											case '-': dash++;
+											case _:
+										}
+										
+										if (space < dash) separator = '-';
+										
+										var nodeParts = node.attr( attribute.name ).split( separator );
+										var pointParts = attribute.value.split( separator ).filter( function(s) {
+											return nodeParts.indexOf( s ) == -1;
+										} );
+										
+										node.setAttr( attribute.name, nodeParts.concat( pointParts ).join( separator ) );
 										
 									}
 									
