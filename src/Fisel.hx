@@ -1,12 +1,14 @@
 package;
 
 import uhx.io.Uri;
-import uhx.lexer.CssLexer.CssSelectors;
-import uhx.lexer.SelectorParser;
 import uhx.mo.Token;
 import byte.ByteData;
 import uhx.select.Html;
+import uhx.select.Json;
 import haxe.ds.StringMap;
+import uhx.lexer.MimeLexer;
+import uhx.lexer.SelectorParser;
+import uhx.lexer.CssLexer.CssSelectors;
 
 using Fisel;
 using Detox;
@@ -26,32 +28,40 @@ using sys.FileSystem;
  */
 
  /**
-  * - [x] Allow root uri to be set via `<base href="path/to/directory" />`.
-  * - [x] Root uri can be relative.
-  * - [x] Root uri can be absolute.
+  * - [ ] Allow root uri to be set via `<base href="path/to/directory" />`.
+  * - [ ] Root uri can be relative.
+  * - [ ] Root uri can be absolute.
   * - [x] Allow resources to be loaded from the filesystem.
   * - [ ] Allow resources to be loaded from the web.
   * - [x] Make sure all resource uris end with `html` or `htm`.
   * - [x] Each loaded resource is a Fisel instance.
 	* - [x] Allow HTML not wrapped in `<template></template>`.
-	* - [x] Automatically wrap any HTML not wrapped in `<template></template>`.
-  * - [x] Imported HTML replaces a `<content select="css"/>` which was selected by the `select` attribute.
+	* - [x] Automatically wrap all HTML in `<fisel></fisel>`.
+  * - [x] Imported HTML replaces a `<content select="#css"/>` which was selected by the `select` attribute.
   * - [x] Any unmatched selectors then search the document in its current state for a match.
   * - [x] Attributes on `<content id="1" data-name="Skial" /> which don't exist on the imported HTML are transfered over.
-  * - [x] Transfered attributes which match by name will have the value added only if it doesnt exist, space separated to the end.
+  * - [x] Transfered attributes which match by name will have the value added only if it doesnt exist, added to the end.
   * - [x] Detect if attributes value is space or dashed separated and use the correct character when appending new values. Default is space.
   * - [x] Remove `<link rel="import" />` when `Fisel::build` has been run.
   */
 
-@:forward @:enum abstract Target(String) from String to String {
-	public var TEXT = 'text';
+@:forward @:enum private abstract Source(String) from String to String {
+	//public var CSV = 'csv';
+	//public var MARKDOWN = 'markdown';
+	public var XML = 'xml';
 	public var JSON = 'json';
-	public var DOM = 'dom';		// default
+	public var HTML = 'html';		// default
+	public var TEXT = 'plain';
 }
 
-@:forward @:enum abstract Action(String) from String to String {
-	public var MOVE = 'move';
+@:forward @:enum private abstract Action(String) from String to String {
 	public var COPY = 'copy';	// default
+	public var REMOVE = 'remove';
+}
+
+@:forward @:enum private abstract Data(String) from String to String {
+	public var TARGET = 'data-target';
+	public var TYPE = 'data-type';
 }
 
 private class Link {
@@ -79,9 +89,10 @@ class Fisel {
 		
 	}
 	
-	private static var _ignore:Array<String> = ['select', 'data-text', 'data-json', 'text', 'json', 'data-dom', 'dom'];
-	private static var _targets:Array<String> = [Target.TEXT, Target.JSON, Target.DOM];
-	private static var _actions:Array<String> = [Action.COPY, Action.MOVE];
+	private static var _ignore:Array<String> = ['select', Data.TYPE, Data.TARGET];
+	private static var _targets:Array<String> = [Source.TEXT, Source.HTML, Source.JSON];
+	private static var _actions:Array<String> = [Action.COPY, Action.REMOVE];
+	private static var _mediaType:MediaType = new MediaType( [Keyword(Toplevel('text')), Keyword(Subtype('html'))] );
 	
 	/**
 	 * Goes through the `parent`'s referrers link list
@@ -97,6 +108,8 @@ class Fisel {
 		
 		return result;
 	}
+	
+	public var data:StringMap<Dynamic> = new StringMap();
 	
 	/**
 	 * This HTML document.
@@ -285,37 +298,115 @@ class Fisel {
 	 * will match with `select="#File"`.
 	 */
 	private function handleInsertions():Void {
-		var id:String = '';
 		var fisel:Fisel = null;
-		var selector:CssSelectors;
 		var insertionPoints:DOMCollection = null;
-		var parser:SelectorParser = new SelectorParser();
 		var matched:Array<Link> = [];
+		var mediaType:MediaType;
+		var dataAction:Action;
+		var nodes:DOMCollection;
 		
 		for (link in links) if (!link.cycle) {
 			fisel = linkMap.get( link.location );
 			insertionPoints = document.find( 'content[select]' );
 			
 			for (point in insertionPoints) {
-				selector = parser.toTokens( ByteData.ofString( point.attr( 'select' ) ), 'fisel-insert' );
+				nodes = new DOMCollection();
 				
-				if (isID( selector )) {
-					id = getID( selector );
-					
-					if (link.location.withoutDirectory().indexOf( id ) > -1) {
-						point.replaceWith( fisel.document.children().clone() );
-						matched.push( link );
+				mediaType = point.attr( Data.TYPE ) != '' ? point.attr( Data.TYPE ).toLowerCase() : _mediaType;
+				dataAction = point.attr( Data.TARGET ) != '' ? point.attr( Data.TARGET ).toLowerCase() : Action.COPY;
+				
+				if (mediaType.isText) switch (mediaType.subtype) {
+					case Source.TEXT:
+						var node = fisel.document.find( point.attr( 'select' ) );
+						if (node.length > 0) {
+							point.replaceWith( node.text().parse() );
+							matched.push( link );
+							nodes.addCollection( node );
+							
+						}
 						
-					}
+					case Source.JSON:
+						var info = [];
+						for (key in data.keys()) {
+							info = info.concat( Json.find( data.get( key ), point.attr( 'select' ) ) );
+							
+						}
+						
+						if (info.length > 0) {
+							point.replaceWith( info.join('').parse() );
+							matched.push( link );
+							
+						}
+						
+					case _:
+						// Implies Source.HTML or Source.XML
+						var parser:SelectorParser = new SelectorParser();
+						var selector = parser.toTokens( ByteData.ofString( point.attr( 'select' ) ), 'fisel-insert' );
+						
+						if (isID( selector )) {
+							
+							if (link.location.withoutDirectory().indexOf( getID( selector ) ) > -1) {
+								var clone = fisel.document.children().clone();
+								
+								transferAttributes( clone.getNode(), point.attributes );
+								point.replaceWith( clone );
+								matched.push( link );
+								
+							}
+							
+						}
 					
 				}
 				
+				if (dataAction == Action.REMOVE) nodes.remove();
+				
 			}
+			
 		}
 		
 		// Remove any matched links so they do get processed in the
 		// next step.
 		for (match in matched) links.remove( match );
+	}
+	
+	/**
+	 * Crudely determines if a space ` ` or a dash `-` is
+	 * separating the values.
+	 */
+	private function findSeparator(value:String):String {
+		var space = 0;
+		var dash = 0;
+		
+		for (character in value.split('')) switch (character) {
+			case ' ': space++;
+			case '-': dash++;
+			case _:
+		}
+		
+		return space < dash ? '-' : ' ';
+	}
+	
+	private function transferAttributes(target:DOMNode, attributes:Iterable<{name:String, value:String}>):Void {
+		for (attribute in attributes) if (_ignore.indexOf( attribute.name ) == -1) {
+			
+			if (target.attr( attribute.name ) == '') {
+				target.setAttr( attribute.name, attribute.value );
+				
+			} else {
+				var nodeAttribute = target.attr( attribute.name );
+				var separator = findSeparator( nodeAttribute );
+				var nodeParts = nodeAttribute.split( separator );
+				
+				target.setAttr( 
+					attribute.name, 
+					nodeParts.concat( attribute.value.split( separator ).filter( function(s) {
+						return nodeParts.indexOf( s ) == -1;
+					} ) ).join( separator ) 
+				);
+				
+			}
+			
+		}
 	}
 	
 	private function isCombinator(selector:CssSelectors):Bool {
@@ -352,89 +443,6 @@ class Fisel {
 		
 		return result;
 	}
-	
-	/*public function build():Void {
-		/*for (key in importCache.keys()) importCache.get( key ).build();
-		
-		var attr;
-		var matches;
-		var targets;
-		for (content in insertionPoints) {
-			attr = content.attr( 'select' );
-			
-			if (attr.startsWith('#') && importCache.exists( attr.substring(1) )) {
-				content.replaceWith( 
-					importCache.get( attr = attr.substring(1) ).document.find( 'template:first-child' ).innerHTML().htmlUnescape().parse() 
-				);
-				
-			} else {
-				matches = document.find( attr );
-				
-				if (matches.length != 0) {
-					var attributes = [for (a in content.attributes) a].filter( 
-						function(a) {
-							a.name = a.name.startsWith('data-') ? a.name.substring(5) : a.name;
-							return _targets.indexOf(a.name) > -1 || _actions.indexOf(a.value) > -1;
-						}
-					);
-					
-					switch (attributes[0]) {
-						case { name:Target.TEXT, value:Action.MOVE }:
-							content.replaceWith( matches.text().parse() );
-							matches.remove();
-							
-						case { name:Target.TEXT, value:Action.COPY } | { name:Target.TEXT }:
-							content.replaceWith( matches.text().parse() );
-							
-						case { name:Target.JSON } :
-							
-							
-						case { name:Target.DOM, value:Action.MOVE } :
-							targets = matches;
-							content.replaceWith( targets );
-							
-						case { name:Target.DOM, value:Action.COPY } | { name:Target.DOM } | null | _:
-							targets = matches.clone();
-							content.replaceWith( targets );
-							
-					}
-					
-					attributes = [for (a in content.attributes) a].filter(
-						function(a) return _ignore.indexOf( a.name ) == -1
-					);
-					
-					var value;
-					var separator;
-					if (targets != null) {
-						for (target in targets) for (a in attributes) if ((value = target.attr( a.name )) == '') {
-							target.setAttr(a.name, a.value);
-							
-						} else if (value.indexOf( a.value ) == -1) {
-							separator = !value.startsWith('-') && value.indexOf('-') > -1? '-' : ' ';
-							target.setAttr( a.name, '$value$separator${a.value}' );
-							
-						}
-						
-						targets = null;
-						
-					}
-				}
-				
-			}
-			
-		}
-		
-		// Remove any unresolved `<content select="..." />`
-		document.find( 'content[select]' ).remove();
-		
-		// Remove all `<link rel="import" />`
-		imports.remove();*/
-		
-		/*for (link in links) {
-			if (!link.cycle) linkMap.get( link.location ).build();
-			
-		}
-	}*/
 	
 	#if !js
 	public inline function loadFile(path:String):Null<String> {

@@ -3,6 +3,7 @@
 -lib mo
 -lib klas
 -lib cmd
+-lib media-types
 -cp src
 -debug
 -neko bin/fisel.n
