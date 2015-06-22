@@ -88,7 +88,7 @@ class Fisel {
 		
 	}
 	
-	private static var _ignore:Array<String> = ['select', 'data-type'];
+	private static var _ignore:Array<String> = ['select', Data.TYPE, Data.TARGET];
 	private static var _targets:Array<String> = [Source.TEXT, Source.HTML, Source.JSON];
 	private static var _actions:Array<String> = [Action.COPY, Action.REMOVE];
 	
@@ -346,7 +346,22 @@ class Fisel {
 							id = getID( selector );
 							
 							if (link.location.withoutDirectory().indexOf( id ) > -1) {
-								point.replaceWith( fisel.document.children().clone() );
+								var clone = fisel.document.children().clone();
+								
+								for (attribute in point.attributes) if (_ignore.indexOf( attribute.name ) == -1) {
+									var node = clone.getNode();
+									
+									if (node.attr( attribute.name ) == '') {
+										node.setAttr( attribute.name, attribute.value );
+										
+									} else {
+										node.setAttr( attribute.name, node.attr( attribute.name ) + ' ' + attribute.value );
+										
+									}
+									
+								}
+								
+								point.replaceWith( clone );
 								matched.push( link );
 								
 							}
