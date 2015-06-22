@@ -320,11 +320,11 @@ class Fisel {
 				
 				if (mediaType.isText) switch (mediaType.subtype) {
 					case Source.TEXT:
-						var text = fisel.document.find( point.attr( 'select' ) );
-						if (text.length > 0) {
-							point.replaceWith( text.text().parse() );
+						var node = fisel.document.find( point.attr( 'select' ) );
+						if (node.length > 0) {
+							point.replaceWith( node.text().parse() );
 							matched.push( link );
-							nodes.addCollection( text );
+							nodes.addCollection( node );
 							
 						}
 						
@@ -351,28 +351,7 @@ class Fisel {
 							if (link.location.withoutDirectory().indexOf( id ) > -1) {
 								var clone = fisel.document.children().clone();
 								
-								for (attribute in point.attributes) if (_ignore.indexOf( attribute.name ) == -1) {
-									var node = clone.getNode();
-									
-									if (node.attr( attribute.name ) == '') {
-										node.setAttr( attribute.name, attribute.value );
-										
-									} else {
-										var nodeAttribute = node.attr( attribute.name );
-										var separator = findSeparator( nodeAttribute );
-										var nodeParts = nodeAttribute.split( separator );
-										
-										node.setAttr( 
-											attribute.name, 
-											nodeParts.concat( attribute.value.split( separator ).filter( function(s) {
-												return nodeParts.indexOf( s ) == -1;
-											} ) ).join( separator ) 
-										);
-										
-									}
-									
-								}
-								
+								transferAttributes( clone.getNode(), point.attributes );
 								point.replaceWith( clone );
 								matched.push( link );
 								
@@ -408,6 +387,29 @@ class Fisel {
 		}
 		
 		return space < dash ? '-' : ' ';
+	}
+	
+	private function transferAttributes(target:DOMNode, attributes:Iterable<{name:String, value:String}>):Void {
+		for (attribute in attributes) if (_ignore.indexOf( attribute.name ) == -1) {
+			
+			if (target.attr( attribute.name ) == '') {
+				target.setAttr( attribute.name, attribute.value );
+				
+			} else {
+				var nodeAttribute = target.attr( attribute.name );
+				var separator = findSeparator( nodeAttribute );
+				var nodeParts = nodeAttribute.split( separator );
+				
+				target.setAttr( 
+					attribute.name, 
+					nodeParts.concat( attribute.value.split( separator ).filter( function(s) {
+						return nodeParts.indexOf( s ) == -1;
+					} ) ).join( separator ) 
+				);
+				
+			}
+			
+		}
 	}
 	
 	private function isCombinator(selector:CssSelectors):Bool {
