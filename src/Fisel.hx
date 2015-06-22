@@ -28,19 +28,19 @@ using sys.FileSystem;
  */
 
  /**
-  * - [x] Allow root uri to be set via `<base href="path/to/directory" />`.
-  * - [x] Root uri can be relative.
-  * - [x] Root uri can be absolute.
+  * - [ ] Allow root uri to be set via `<base href="path/to/directory" />`.
+  * - [ ] Root uri can be relative.
+  * - [ ] Root uri can be absolute.
   * - [x] Allow resources to be loaded from the filesystem.
   * - [ ] Allow resources to be loaded from the web.
   * - [x] Make sure all resource uris end with `html` or `htm`.
   * - [x] Each loaded resource is a Fisel instance.
 	* - [x] Allow HTML not wrapped in `<template></template>`.
-	* - [x] Automatically wrap any HTML not wrapped in `<template></template>`.
-  * - [x] Imported HTML replaces a `<content select="css"/>` which was selected by the `select` attribute.
+	* - [x] Automatically wrap all HTML in `<fisel></fisel>`.
+  * - [x] Imported HTML replaces a `<content select="#css"/>` which was selected by the `select` attribute.
   * - [x] Any unmatched selectors then search the document in its current state for a match.
   * - [x] Attributes on `<content id="1" data-name="Skial" /> which don't exist on the imported HTML are transfered over.
-  * - [x] Transfered attributes which match by name will have the value added only if it doesnt exist, space separated to the end.
+  * - [x] Transfered attributes which match by name will have the value added only if it doesnt exist, added to the end.
   * - [x] Detect if attributes value is space or dashed separated and use the correct character when appending new values. Default is space.
   * - [x] Remove `<link rel="import" />` when `Fisel::build` has been run.
   */
@@ -298,11 +298,8 @@ class Fisel {
 	 * will match with `select="#File"`.
 	 */
 	private function handleInsertions():Void {
-		var id:String = '';
 		var fisel:Fisel = null;
-		var selector:CssSelectors;
 		var insertionPoints:DOMCollection = null;
-		var parser:SelectorParser = new SelectorParser();
 		var matched:Array<Link> = [];
 		var mediaType:MediaType;
 		var dataAction:Action;
@@ -343,12 +340,12 @@ class Fisel {
 						
 					case _:
 						// Implies Source.HTML or Source.XML
-						selector = parser.toTokens( ByteData.ofString( point.attr( 'select' ) ), 'fisel-insert' );
+						var parser:SelectorParser = new SelectorParser();
+						var selector = parser.toTokens( ByteData.ofString( point.attr( 'select' ) ), 'fisel-insert' );
 						
 						if (isID( selector )) {
-							id = getID( selector );
 							
-							if (link.location.withoutDirectory().indexOf( id ) > -1) {
+							if (link.location.withoutDirectory().indexOf( getID( selector ) ) > -1) {
 								var clone = fisel.document.children().clone();
 								
 								transferAttributes( clone.getNode(), point.attributes );
