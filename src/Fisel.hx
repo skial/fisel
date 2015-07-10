@@ -6,9 +6,10 @@ import byte.ByteData;
 import uhx.select.Html;
 import uhx.select.Json;
 import haxe.ds.StringMap;
-import uhx.lexer.MimeLexer;
-import uhx.lexer.SelectorParser;
-import uhx.lexer.CssLexer.CssSelectors;
+import uhx.lexer.Mime;
+import uhx.types.MediaType;
+import uhx.parser.Selector;
+import uhx.lexer.Css.CssSelectors;
 
 using Fisel;
 using Detox;
@@ -114,7 +115,7 @@ class Fisel {
 	/**
 	 * This HTML document.
 	 */
-	@:isVar public var document(default, set):DOMCollection;
+	public var document:DOMCollection;
 	
 	/**
 	 * A list of `<link rel="import" href="..." />`'s found in this HTML document.
@@ -134,12 +135,13 @@ class Fisel {
 	private var referrers:Array<Fisel> = [];
 	
 	/**
-	 * The base uri.
+	 * The base uri, useful for changing directories and as stated in the `href` attribute
+	 * of a single `<base />` element.
 	 */
-	public var root:String;
+	public var uri:String;
 	
 	/**
-	 * The uri to the import.
+	 * The files location as stated in the `href` attribute.
 	 */
 	public var location:String;
 	
@@ -178,21 +180,22 @@ class Fisel {
 	}
 	
 	public function find():Void {
-		if (root == null) {
+		if (uri == null) {
 			var bases = document.find( 'base[href]' );
 			
 			if (bases.length > 0) {
-				root = bases.getNode().attr( 'href' ).normalize();
+				// Use the first `<base />` node.
+				uri = bases.getNode().attr( 'href' ).normalize();
 				
-				if (!root.isAbsolute()) root = getRoot();
+				if (!uri.isAbsolute()) uri = getRoot();
 				
 			} else {
-				root = getRoot();
+				uri = getRoot();
 				
 			}
 			
 		}
-		
+		trace( uri );
 		for (link in document.find( 'link[rel*="import"][href*=".htm"]' )) {
 			var l =  new Link( (location.directory().addTrailingSlash() + link.attr( 'href' )).normalize() );
 			links.push( l );
@@ -201,7 +204,7 @@ class Fisel {
 		
 	}
 	
-	private function getRoot():String {
+	private inline function getRoot():String {
 		return 
 		#if !js
 			Sys.getCwd()
@@ -356,7 +359,7 @@ class Fisel {
 				mediaType = point.attr( Data.TYPE ) != '' ? point.attr( Data.TYPE ).toLowerCase() : _mediaType;
 				dataAction = point.attr( Data.TARGET ) != '' ? point.attr( Data.TARGET ).toLowerCase() : Action.COPY;
 				
-				if (mediaType.isText) switch (mediaType.subtype) {
+				if (mediaType.isText()) switch (mediaType.subtype) {
 					case Source.TEXT:
 						var node = fisel.document.find( point.attr( 'select' ) );
 						if (node.length > 0) {
@@ -381,7 +384,7 @@ class Fisel {
 						
 					case _:
 						// Implies Source.HTML or Source.XML
-						var parser:SelectorParser = new SelectorParser();
+						var parser:Selector = new Selector();
 						var selector = parser.toTokens( ByteData.ofString( point.attr( 'select' ) ), 'fisel-insert' );
 						
 						if (isID( selector )) {
@@ -498,11 +501,6 @@ class Fisel {
 		return '';
 	}
 	#end
-	
-	private function set_document(v:DOMCollection):DOMCollection {
-		document = v;
-		return document;
-	}
 	
 	/**
 	 * Returns an array of `Fisel` instances which preceede
