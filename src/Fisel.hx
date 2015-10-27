@@ -187,17 +187,20 @@ class Fisel {
 				// Use the first `<base />` node.
 				uri = bases.getNode().attr( 'href' ).normalize();
 				
-				if (!uri.isAbsolute()) uri = getRoot();
+				if (!uri.isAbsolute()) {
+					uri = (location.directory() + uri).normalize();
+					
+				}
 				
 			} else {
-				uri = getRoot();
+				uri = location.directory();
 				
 			}
 			
 		}
 		
 		for (link in document.find( 'link[rel*="import"][href*=".htm"]' )) {
-			var l =  new Link( (location.directory().addTrailingSlash() + link.attr( 'href' )).normalize() );
+			var l =  new Link( (uri.toString().addTrailingSlash() + link.attr( 'href' )).normalize() );
 			links.push( l );
 			l.cycle = Fisel.isCycle(l, this);
 		}
@@ -220,6 +223,7 @@ class Fisel {
 		var content = '';
 		
 		for (link in links) {
+			trace( link );
 			if (linkMap.exists( link.location )) {
 				linkMap.get( link.location ).referrers.push( this );
 				
@@ -231,7 +235,7 @@ class Fisel {
 				// Wrap file content in a single element.
 				content = loadFile( link.location );
 				fisel.document = ('<fisel>' + content + '</fisel>').parse();
-				// Replace `<template>` elements with its content early, else where is too late.
+				// Replace `<template>` elements with its content early, else it is too late.
 				var templates = fisel.document.find( 'template' );
 				templates.replaceWith( templates.text().parse() );
 				
@@ -295,7 +299,7 @@ class Fisel {
 			head = fisel.document.find( 'head' );
 			body = fisel.document.find( 'body' );
 			
-			if (parentHead.length > 0 && head.length > 0 && head.length > 0 && head.getNode().hasChildNodes()) {
+			/*if (parentHead.length > 0 && head.length > 0 && head.getNode().hasChildNodes()) {
 				var _import = parentHead.find( 'link[rel="import"][href*="${link.location.withoutDirectory()}"]' );
 				// Ignore `<base />` and `<title>` tags as your only meant to have one.
 				var _content = head.getNode().find( ':not(head, base, title)' );
@@ -315,9 +319,9 @@ class Fisel {
 			// Is it just a HTML fragment without a `<head>` and `<body>`?
 			if (parentHead.length > 0 && parentBody.length > 0 && head.length == 0 && body.length == 0) {
 				parentHead = parentHead.append( fisel.document.find( 'style, link:not([rel="import"]), meta, script[async], script[defer]' ).clone() );
-				parentBody = parentBody.append( fisel.document.find( ':not(style, link:not([rel="import"]), meta, script[async], script[defer])' ).clone() );
+				parentBody = parentBody.append( fisel.document.find( ':not(base, style, link:not([rel="import"]), meta, script[async], script[defer])' ).clone() );
 				
-			}
+			}*/
 			
 		}
 		
@@ -390,8 +394,8 @@ class Fisel {
 						if (isID( selector )) {
 							
 							if (link.location.withoutDirectory().indexOf( getID( selector ) ) > -1) {
-								var clone = fisel.document.children().clone();
-								
+								//var clone = fisel.document.find( ':not(base, style, link:not([rel="import"]), meta, script[async], script[defer])' ).clone();
+								var clone = fisel.document.children().filter( function(n) return ['base', 'style', 'link', 'meta', 'script'].indexOf(n.tagName()) == -1 ).clone();
 								transferAttributes( clone.getNode(), point.attributes );
 								point.replaceWith( clone );
 								matched.push( link );
