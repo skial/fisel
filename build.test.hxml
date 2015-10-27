@@ -1,0 +1,16 @@
+-lib detox
+-lib uhu
+-lib mo
+-lib klas
+-lib cmd
+-lib media-types
+-lib uri
+-lib utest
+-cp src
+-cp test
+-debug
+
+--each
+
+-neko bin/fiselspec.n
+-main uhx.fisel.FiselSpec
