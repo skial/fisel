@@ -2,7 +2,9 @@ package;
 
 import haxe.ds.StringMap;
 import uhx.mo.Token;
-import uhx.lexer.HtmlLexer;
+import uhx.lexer.Html as HtmlLexer;
+import uhx.lexer.Html.NodeType;
+import uhx.parser.Html as HtmlParser;
 import sys.io.File;
 import uhx.sys.Ioe;
 import haxe.io.Input;
@@ -26,7 +28,7 @@ using sys.FileSystem;
 	'fisel --pretty -i index.html ## Prints to stdout',
 	'fisel -o /bin/index.html ## Will wait for input on stdin'
 )
-class LibRunner extends Ioe implements Klas {
+class LibRunner extends Ioe {
 	
 	public static function main() {
 		var lib = new LibRunner( Sys.args() );

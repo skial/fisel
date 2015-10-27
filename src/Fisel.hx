@@ -1,12 +1,12 @@
 package;
 
-import uhx.io.Uri;
 import uhx.mo.Token;
 import byte.ByteData;
 import uhx.select.Html;
 import uhx.select.Json;
 import haxe.ds.StringMap;
 import uhx.lexer.Mime;
+import uhx.types.Uri;
 import uhx.types.MediaType;
 import uhx.parser.Selector;
 import uhx.lexer.Css.CssSelectors;
@@ -138,7 +138,7 @@ class Fisel {
 	 * The base uri, useful for changing directories and as stated in the `href` attribute
 	 * of a single `<base />` element.
 	 */
-	public var uri:String;
+	public var uri:Uri;
 	
 	/**
 	 * The files location as stated in the `href` attribute.
@@ -195,7 +195,7 @@ class Fisel {
 			}
 			
 		}
-		trace( uri );
+		
 		for (link in document.find( 'link[rel*="import"][href*=".htm"]' )) {
 			var l =  new Link( (location.directory().addTrailingSlash() + link.attr( 'href' )).normalize() );
 			links.push( l );

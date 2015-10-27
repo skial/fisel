@@ -3,6 +3,9 @@
 -lib klas
 -lib cmd
 -lib detox
+-lib uri
+-lib media-types
+-lib utest
 -cp src
 -neko bin/fisel.n
 -main Fisel
