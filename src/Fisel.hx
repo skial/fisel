@@ -223,7 +223,6 @@ class Fisel {
 		var content = '';
 		
 		for (link in links) {
-			trace( link );
 			if (linkMap.exists( link.location )) {
 				linkMap.get( link.location ).referrers.push( this );
 				
@@ -299,7 +298,7 @@ class Fisel {
 			head = fisel.document.find( 'head' );
 			body = fisel.document.find( 'body' );
 			
-			/*if (parentHead.length > 0 && head.length > 0 && head.getNode().hasChildNodes()) {
+			if (parentHead.length > 0 && head.length > 0 && head.getNode().hasChildNodes()) {
 				var _import = parentHead.find( 'link[rel="import"][href*="${link.location.withoutDirectory()}"]' );
 				// Ignore `<base />` and `<title>` tags as your only meant to have one.
 				var _content = head.getNode().find( ':not(head, base, title)' );
@@ -321,7 +320,7 @@ class Fisel {
 				parentHead = parentHead.append( fisel.document.find( 'style, link:not([rel="import"]), meta, script[async], script[defer]' ).clone() );
 				parentBody = parentBody.append( fisel.document.find( ':not(base, style, link:not([rel="import"]), meta, script[async], script[defer])' ).clone() );
 				
-			}*/
+			}
 			
 		}
 		
