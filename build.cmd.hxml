@@ -4,6 +4,7 @@
 -lib klas
 -lib cmd
 -lib media-types
+-lib uri
 -cp src
 -debug
 -neko bin/fisel.n

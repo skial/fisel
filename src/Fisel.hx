@@ -1,14 +1,15 @@
 package;
 
-import uhx.io.Uri;
 import uhx.mo.Token;
 import byte.ByteData;
 import uhx.select.Html;
 import uhx.select.Json;
 import haxe.ds.StringMap;
-import uhx.lexer.MimeLexer;
-import uhx.lexer.SelectorParser;
-import uhx.lexer.CssLexer.CssSelectors;
+import uhx.lexer.Mime;
+import uhx.types.Uri;
+import uhx.types.MediaType;
+import uhx.parser.Selector;
+import uhx.lexer.Css.CssSelectors;
 
 using Fisel;
 using Detox;
@@ -134,40 +135,86 @@ class Fisel {
 	private var referrers:Array<Fisel> = [];
 	
 	/**
-	 * The url to the import.
+	 * The base uri, useful for changing directories and as stated in the `href` attribute
+	 * of a single `<base />` element.
+	 */
+	public var uri:Uri;
+	
+	/**
+	 * The files location as stated in the `href` attribute.
 	 */
 	public var location:String;
 	
 	private var imports:DOMCollection;
 	
 	public function new() {
-		/*var bases = document.find( 'base[href]' );
+		//var bases = document.find( 'base[href]' );
 		
-		if (path == null) {
+		//if (path == null) {
 			// If no `<base />` is found, set the root uri to the current working directory.
-			if (bases.length == 0) {
-				location = #if !js Sys.getCwd().normalize() #else js.Browser.document.location.host #end;
+			/*if (bases.length == 0) {
+				location = 
+				#if !js 
+					Sys.getCwd().normalize() 
+				#else 
+					js.Browser.document.location.host 
+				#end;
 				
-			} else {
-				var _base = bases.collection[0].attr( 'href' ).normalize();
-				_base = !_base.isAbsolute() ? (#if !js Sys.getCwd() #else js.Browser.document.location.host #end + _base).normalize() : _base;
+			} else*//*if (bases.length > 0) {
+				var _base = bases.getNode().attr( 'href' ).normalize();
+				_base = !_base.isAbsolute() ? (
+				#if !js
+					Sys.getCwd() 
+				#else 
+					js.Browser.document.location.host 
+				#end 
+				.addTrailingSlash() + _base).normalize() : _base;
 				location = _base;
-				
 			}
 			
-		} else {
+		/*} else {
 			location = path;
 			
 		}*/
+		//trace( location );
 	}
 	
 	public function find():Void {
+		if (uri == null) {
+			var bases = document.find( 'base[href]' );
+			
+			if (bases.length > 0) {
+				// Use the first `<base />` node.
+				uri = bases.getNode().attr( 'href' ).normalize();
+				
+				if (!uri.isAbsolute()) {
+					uri = (location.directory() + uri).normalize();
+					
+				}
+				
+			} else {
+				uri = location.directory();
+				
+			}
+			
+		}
+		
 		for (link in document.find( 'link[rel*="import"][href*=".htm"]' )) {
-			var l =  new Link( (location.directory() + '/' + link.attr( 'href' )).normalize() );
+			var l =  new Link( (uri.toString().addTrailingSlash() + link.attr( 'href' )).normalize() );
 			links.push( l );
 			l.cycle = Fisel.isCycle(l, this);
 		}
 		
+	}
+	
+	private inline function getRoot():String {
+		return 
+		#if !js
+			Sys.getCwd()
+		#else
+			js.Browser.document.location.host
+		#end
+		.normalize();
 	}
 	
 	public function load():Void {
@@ -187,7 +234,7 @@ class Fisel {
 				// Wrap file content in a single element.
 				content = loadFile( link.location );
 				fisel.document = ('<fisel>' + content + '</fisel>').parse();
-				// Replace `<template>` elements with its content early, else where is too late.
+				// Replace `<template>` elements with its content early, else it is too late.
 				var templates = fisel.document.find( 'template' );
 				templates.replaceWith( templates.text().parse() );
 				
@@ -251,7 +298,7 @@ class Fisel {
 			head = fisel.document.find( 'head' );
 			body = fisel.document.find( 'body' );
 			
-			if (parentHead.length > 0 && head.length > 0 && head.length > 0 && head.getNode().hasChildNodes()) {
+			if (parentHead.length > 0 && head.length > 0 && head.getNode().hasChildNodes()) {
 				var _import = parentHead.find( 'link[rel="import"][href*="${link.location.withoutDirectory()}"]' );
 				// Ignore `<base />` and `<title>` tags as your only meant to have one.
 				var _content = head.getNode().find( ':not(head, base, title)' );
@@ -271,7 +318,7 @@ class Fisel {
 			// Is it just a HTML fragment without a `<head>` and `<body>`?
 			if (parentHead.length > 0 && parentBody.length > 0 && head.length == 0 && body.length == 0) {
 				parentHead = parentHead.append( fisel.document.find( 'style, link:not([rel="import"]), meta, script[async], script[defer]' ).clone() );
-				parentBody = parentBody.append( fisel.document.find( ':not(style, link:not([rel="import"]), meta, script[async], script[defer])' ).clone() );
+				parentBody = parentBody.append( fisel.document.find( ':not(base, style, link:not([rel="import"]), meta, script[async], script[defer])' ).clone() );
 				
 			}
 			
@@ -315,7 +362,7 @@ class Fisel {
 				mediaType = point.attr( Data.TYPE ) != '' ? point.attr( Data.TYPE ).toLowerCase() : _mediaType;
 				dataAction = point.attr( Data.TARGET ) != '' ? point.attr( Data.TARGET ).toLowerCase() : Action.COPY;
 				
-				if (mediaType.isText) switch (mediaType.subtype) {
+				if (mediaType.isText()) switch (mediaType.subtype) {
 					case Source.TEXT:
 						var node = fisel.document.find( point.attr( 'select' ) );
 						if (node.length > 0) {
@@ -340,14 +387,14 @@ class Fisel {
 						
 					case _:
 						// Implies Source.HTML or Source.XML
-						var parser:SelectorParser = new SelectorParser();
+						var parser:Selector = new Selector();
 						var selector = parser.toTokens( ByteData.ofString( point.attr( 'select' ) ), 'fisel-insert' );
 						
 						if (isID( selector )) {
 							
 							if (link.location.withoutDirectory().indexOf( getID( selector ) ) > -1) {
-								var clone = fisel.document.children().clone();
-								
+								//var clone = fisel.document.find( ':not(base, style, link:not([rel="import"]), meta, script[async], script[defer])' ).clone();
+								var clone = fisel.document.children().filter( function(n) return ['base', 'style', 'link', 'meta', 'script'].indexOf(n.tagName()) == -1 ).clone();
 								transferAttributes( clone.getNode(), point.attributes );
 								point.replaceWith( clone );
 								matched.push( link );
